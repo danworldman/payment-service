@@ -1,0 +1,48 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: payment-service
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/paymentdb}
+      auto-index-creation: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.type.mapping: payment:com.innowise.paymentservice.model.event.PaymentEvent
+
+  main:
+    web-application-type: servlet
+
+server:
+  port: ${SERVER_PORT:8083}
+
+external:
+  api:
+    url: ${EXTERNAL_API_URL:http://localhost:8081/evaluate}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      externalApi:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+
+logging:
+  level:
+    com.innowise.paymentservice: DEBUG
+    org.springframework.data.mongodb: DEBUG
+    org.springframework.kafka: INFO

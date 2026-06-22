@@ -1,0 +1,18 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/paymentdb
+  kafka:
+    bootstrap-servers: localhost:9092
+
+external:
+  api:
+    url: http://localhost:8081/evaluate
+
+server:
+  port: 8083
+
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.springframework.kafka: DEBUG

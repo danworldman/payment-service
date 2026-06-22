@@ -1,0 +1,18 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://mongodb:27017/paymentdb
+  kafka:
+    bootstrap-servers: kafka:9092
+
+external:
+  api:
+    url: http://external-mock:8081/evaluate
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.kafka: INFO
