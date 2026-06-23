@@ -11,17 +11,10 @@ import org.springframework.stereotype.Component;
 public class PaymentEventProducer {
 
     private final KafkaTemplate<String, PaymentEvent> kafkaTemplate;
-    private static final String TOPIC = "CREATE_PAYMENT";
+    private static final String TOPIC = "payment-events";
 
     public void sendPaymentEvent(Payment payment) {
-        PaymentEvent event = new PaymentEvent(
-                payment.getId(),
-                payment.getOrderId(),
-                payment.getUserId(),
-                payment.getStatus(),
-                payment.getPaymentAmount(),
-                payment.getTimestamp()
-        );
+        PaymentEvent event = new PaymentEvent(payment.getOrderId(), payment.getStatus());
         kafkaTemplate.send(TOPIC, event);
     }
 }

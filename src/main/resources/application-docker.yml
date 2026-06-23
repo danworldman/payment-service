@@ -1,12 +1,13 @@
 spring:
   mongodb:
     uri: mongodb://root:example@payment-mongodb:27017/paymentdb?authSource=admin
-
-  liquibase:
-    url: mongodb://root:example@payment-mongodb:27017/paymentdb?authSource=admin
-
   kafka:
     bootstrap-servers: payment-kafka:9092
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          secret: your-256-bit-secret-key-here-must-be-32-bytes
 
 external:
   api:

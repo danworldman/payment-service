@@ -4,20 +4,20 @@ import com.innowise.payment_service.model.dto.PaymentRequestDto;
 import com.innowise.payment_service.model.dto.PaymentResponseDto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public interface PaymentService {
 
-    PaymentResponseDto createPayment(PaymentRequestDto dto);
+    PaymentResponseDto initiatePayment(PaymentRequestDto request, String userId);
 
-    List<PaymentResponseDto> getPaymentsByUserId(String userId);
+    PaymentResponseDto getPaymentById(String id);
 
-    List<PaymentResponseDto> getPaymentsByOrderId(String orderId);
+    List<PaymentResponseDto> getPaymentsByFilters(String userId, String orderId, String status);
 
-    List<PaymentResponseDto> getPaymentsByStatus(String status);
+    BigDecimal getTotalSuccessfulPaymentsForUser(String userId, Instant from, Instant to);
 
-    BigDecimal getTotalSumForUser(String userId, LocalDateTime from, LocalDateTime to);
+    BigDecimal getTotalSuccessfulPaymentsForAll(Instant from, Instant to);
 
-    BigDecimal getTotalSumForAll(LocalDateTime from, LocalDateTime to);
+    boolean isPaymentOwnedByUser(String paymentId, String userId);
 }

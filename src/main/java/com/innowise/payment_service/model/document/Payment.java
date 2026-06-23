@@ -10,7 +10,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @Builder
@@ -33,7 +33,7 @@ public class Payment {
     @Indexed
     private String status;
 
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 
     @Field("payment_amount")
     private BigDecimal paymentAmount;

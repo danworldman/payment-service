@@ -1,15 +1,13 @@
 spring:
-  data:
-    mongodb:
-      uri: mongodb://localhost:27017/paymentdb
+  mongodb:
+    uri: mongodb://localhost:27017/paymentdb
   kafka:
     bootstrap-servers: localhost:9092
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.JdbcHealthContributorAutoConfiguration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          secret: your-256-bit-secret-key-here-must-be-32-bytes
 
 external:
   api:

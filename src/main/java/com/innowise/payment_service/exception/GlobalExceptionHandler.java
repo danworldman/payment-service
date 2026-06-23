@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
+import java.nio.file.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -73,6 +74,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGenericException(Exception exception) {
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException exception) {
+        return response(HttpStatus.FORBIDDEN, "Access denied");
     }
 
     private ResponseEntity<ProblemDetail> response(HttpStatus status, String detail) {

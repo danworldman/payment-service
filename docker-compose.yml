@@ -7,7 +7,6 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_MONGODB_URI=mongodb://root:example@payment-mongodb:27017/paymentdb?authSource=admin
-      - SPRING_LIQUIBASE_URL=mongodb://root:example@payment-mongodb:27017/paymentdb?authSource=admin
       - KAFKA_BOOTSTRAP_SERVERS=payment-kafka:9092
       - EXTERNAL_API_URL=http://docker.internal
     depends_on:

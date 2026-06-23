@@ -2,7 +2,7 @@ package com.innowise.payment_service.service.impl;
 
 import com.innowise.payment_service.client.ExternalPaymentApiClient;
 import com.innowise.payment_service.dao.PaymentDAO;
-import com.innowise.payment_service.exception.PaymentAlreadyProcessedException;
+import com.innowise.payment_service.exception.PaymentNotFoundException;
 import com.innowise.payment_service.kafka.PaymentEventProducer;
 import com.innowise.payment_service.mapper.PaymentMapper;
 import com.innowise.payment_service.model.document.Payment;
@@ -10,13 +10,14 @@ import com.innowise.payment_service.model.dto.PaymentRequestDto;
 import com.innowise.payment_service.model.dto.PaymentResponseDto;
 import com.innowise.payment_service.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,79 +31,89 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentResponseDto createPayment(PaymentRequestDto dto) {
-        validateOrderId(dto.orderId());
-        validateUserId(dto.userId());
-
-        paymentDAO.findByOrderIdAndUserId(dto.orderId(), dto.userId())
-                .ifPresent(p -> {
-                    throw new PaymentAlreadyProcessedException("Payment already exists for order: " + dto.orderId());
-                });
-
-        Payment payment = paymentMapper.toEntity(dto);
-        payment.setTimestamp(LocalDateTime.now());
-
-        boolean isSuccess = externalApiClient.evaluatePayment(dto.paymentAmount());
-        payment.setStatus(isSuccess ? "SUCCESS" : "FAILED");
+    public PaymentResponseDto initiatePayment(PaymentRequestDto request, String userId) {
+        Payment payment = Payment.builder()
+                .orderId(request.orderId())
+                .userId(userId)
+                .paymentAmount(request.paymentAmount())
+                .status("PENDING")
+                .timestamp(Instant.now())
+                .build();
 
         Payment saved = paymentDAO.save(payment);
-        eventProducer.sendPaymentEvent(saved);
-
+        processPaymentAsync(saved);
         return paymentMapper.toResponseDto(saved);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<PaymentResponseDto> getPaymentsByUserId(String userId) {
-        validateUserId(userId);
-        return paymentDAO.findByUserId(userId).stream()
-                .map(paymentMapper::toResponseDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<PaymentResponseDto> getPaymentsByOrderId(String orderId) {
-        validateOrderId(orderId);
-        return paymentDAO.findByOrderId(orderId).stream()
-                .map(paymentMapper::toResponseDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<PaymentResponseDto> getPaymentsByStatus(String status) {
-        return paymentDAO.findByStatus(status).stream()
-                .map(paymentMapper::toResponseDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public BigDecimal getTotalSumForUser(String userId, LocalDateTime from, LocalDateTime to) {
-        validateUserId(userId);
-        return paymentDAO.findPaymentsByUserIdAndDateRange(userId, from, to).stream()
-                .map(Payment::getPaymentAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public BigDecimal getTotalSumForAll(LocalDateTime from, LocalDateTime to) {
-        return paymentDAO.findPaymentsByDateRange(from, to).stream()
-                .map(Payment::getPaymentAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private void validateUserId(String userId) {
-        if (!StringUtils.hasText(userId)) {
-            throw new IllegalArgumentException("User ID cannot be null or empty");
+    @Async
+    public void processPaymentAsync(Payment payment) {
+        try {
+            boolean isSuccess = externalApiClient.evaluatePayment(payment.getPaymentAmount());
+            String newStatus = isSuccess ? "SUCCESS" : "FAILED";
+            payment.setStatus(newStatus);
+            paymentDAO.save(payment);
+            eventProducer.sendPaymentEvent(payment);
+        } catch (Exception e) {
+            payment.setStatus("FAILED");
+            paymentDAO.save(payment);
         }
     }
 
-    private void validateOrderId(String orderId) {
-        if (!StringUtils.hasText(orderId)) {
-            throw new IllegalArgumentException("Order ID cannot be null or empty");
+    @Override
+    public PaymentResponseDto getPaymentById(String id) {
+        Payment payment = paymentDAO.findById(id)
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found with id: " + id));
+        return paymentMapper.toResponseDto(payment);
+    }
+
+    @Override
+    public List<PaymentResponseDto> getPaymentsByFilters(String userId, String orderId, String status) {
+        if (userId != null && orderId != null && status != null) {
+            return paymentDAO.findByUserIdAndStatus(userId, status).stream()
+                    .map(paymentMapper::toResponseDto)
+                    .collect(Collectors.toList());
+        } else if (userId != null && orderId != null) {
+            return paymentDAO.findByOrderId(orderId).stream()
+                    .filter(p -> p.getUserId().equals(userId))
+                    .map(paymentMapper::toResponseDto)
+                    .collect(Collectors.toList());
+        } else if (userId != null) {
+            return paymentDAO.findByUserId(userId).stream()
+                    .map(paymentMapper::toResponseDto)
+                    .collect(Collectors.toList());
+        } else if (orderId != null) {
+            return paymentDAO.findByOrderId(orderId).stream()
+                    .map(paymentMapper::toResponseDto)
+                    .collect(Collectors.toList());
+        } else if (status != null) {
+            return paymentDAO.findByStatus(status).stream()
+                    .map(paymentMapper::toResponseDto)
+                    .collect(Collectors.toList());
+        } else {
+            return paymentDAO.findAll().stream()
+                    .map(paymentMapper::toResponseDto)
+                    .collect(Collectors.toList());
         }
+    }
+
+    @Override
+    public BigDecimal getTotalSuccessfulPaymentsForUser(String userId, Instant from, Instant to) {
+        Optional<PaymentDAO.AggregationResult> result =
+                paymentDAO.getTotalSuccessfulPaymentsForUser(userId, from, to);
+        return result.map(PaymentDAO.AggregationResult::total).orElse(BigDecimal.ZERO);
+    }
+
+    @Override
+    public BigDecimal getTotalSuccessfulPaymentsForAll(Instant from, Instant to) {
+        Optional<PaymentDAO.AggregationResult> result =
+                paymentDAO.getTotalSuccessfulPaymentsForAll(from, to);
+        return result.map(PaymentDAO.AggregationResult::total).orElse(BigDecimal.ZERO);
+    }
+
+    @Override
+    public boolean isPaymentOwnedByUser(String paymentId, String userId) {
+        Payment payment = paymentDAO.findById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
+        return payment.getUserId().equals(userId);
     }
 }

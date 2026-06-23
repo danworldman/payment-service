@@ -5,23 +5,20 @@ import com.innowise.payment_service.model.dto.PaymentResponseDto;
 import com.innowise.payment_service.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/payments")
+@RequestMapping("/api/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 
@@ -29,43 +26,61 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<PaymentResponseDto> createPayment(@Valid @RequestBody PaymentRequestDto requestDto) {
-        PaymentResponseDto response = paymentService.createPayment(requestDto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        String userId = getCurrentUserId();
+        PaymentResponseDto response = paymentService.initiatePayment(requestDto, userId);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<PaymentResponseDto>> getPaymentsByUserId(@PathVariable String userId) {
-        List<PaymentResponseDto> payments = paymentService.getPaymentsByUserId(userId);
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @paymentService.isPaymentOwnedByUser(#id, authentication.name)")
+    public ResponseEntity<PaymentResponseDto> getPaymentById(@PathVariable String id) {
+        PaymentResponseDto payment = paymentService.getPaymentById(id);
+        return ResponseEntity.ok(payment);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<PaymentResponseDto>> getPayments(
+            @RequestParam(required = false) String orderId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String userId) {
+
+        String currentUserId = getCurrentUserId();
+        boolean isAdmin = isAdmin();
+        String finalUserId = isAdmin ? userId : currentUserId;
+
+        List<PaymentResponseDto> payments = paymentService.getPaymentsByFilters(finalUserId, orderId, status);
         return ResponseEntity.ok(payments);
     }
 
-    @GetMapping("/order/{orderId}")
-    public ResponseEntity<List<PaymentResponseDto>> getPaymentsByOrderId(@PathVariable String orderId) {
-        List<PaymentResponseDto> payments = paymentService.getPaymentsByOrderId(orderId);
-        return ResponseEntity.ok(payments);
-    }
+    @GetMapping("/users/{userId}/summary")
+    @PreAuthorize("hasRole('ADMIN') or #userId == authentication.name")
+    public ResponseEntity<BigDecimal> getUserSummary(
+            @PathVariable String userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
 
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<PaymentResponseDto>> getPaymentsByStatus(@PathVariable String status) {
-        List<PaymentResponseDto> payments = paymentService.getPaymentsByStatus(status);
-        return ResponseEntity.ok(payments);
-    }
-
-    @GetMapping("/user/{userId}/sum")
-    public ResponseEntity<BigDecimal> getTotalSumForUser(@PathVariable String userId, @RequestParam LocalDateTime from,
-                                                         @RequestParam LocalDateTime to) {
-        BigDecimal total = paymentService.getTotalSumForUser(userId, from, to);
+        BigDecimal total = paymentService.getTotalSuccessfulPaymentsForUser(userId, from, to);
         return ResponseEntity.ok(total);
     }
 
-    @GetMapping("/sum/all")
-    public ResponseEntity<BigDecimal> getTotalSumForAll(@RequestParam LocalDateTime from, @RequestParam LocalDateTime to,
-                                                        @RequestHeader(value = "X-User-Role", required = false) String role) {
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+    @GetMapping("/summary")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<BigDecimal> getAllSummary(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
 
-        BigDecimal total = paymentService.getTotalSumForAll(from, to);
+        BigDecimal total = paymentService.getTotalSuccessfulPaymentsForAll(from, to);
         return ResponseEntity.ok(total);
+    }
+
+    private String getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth.getName();
+    }
+
+    private boolean isAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth.getAuthorities().stream()
+                .anyMatch(granted -> granted.getAuthority().equals("ROLE_ADMIN"));
     }
 }
