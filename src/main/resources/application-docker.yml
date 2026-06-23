@@ -1,18 +1,16 @@
 spring:
-  data:
-    mongodb:
-      uri: mongodb://mongodb:27017/paymentdb
+  mongodb:
+    uri: mongodb://root:example@payment-mongodb:27017/paymentdb?authSource=admin
+
+  liquibase:
+    url: mongodb://root:example@payment-mongodb:27017/paymentdb?authSource=admin
+
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: payment-kafka:9092
 
 external:
   api:
-    url: http://external-mock:8081/evaluate
+    url: http://docker.internal
 
 server:
   port: 8080
-
-logging:
-  level:
-    org.springframework.web: INFO
-    org.springframework.kafka: INFO

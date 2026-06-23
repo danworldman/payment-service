@@ -3,14 +3,21 @@ spring:
     active: local
   application:
     name: payment-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcHealthContributorAutoConfiguration
+      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
 
-  data:
-    mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/paymentdb}
-      auto-index-creation: false
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/paymentdb}
+    auto-index-creation: false
 
   liquibase:
     enabled: true
+    url: ${LIQUIBASE_URL:${spring.mongodb.uri}}
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
   kafka:
@@ -19,8 +26,7 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-        spring.json.type.mapping: payment:com.innowise.paymentservice.model.event.PaymentEvent
-
+        spring.json.type.mapping: payment:com.innowise.payment_service.model.event.PaymentEvent
   main:
     web-application-type: servlet
 
@@ -40,9 +46,3 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3
         wait-duration-in-open-state: 5s
         failure-rate-threshold: 50
-
-logging:
-  level:
-    com.innowise.paymentservice: DEBUG
-    org.springframework.data.mongodb: DEBUG
-    org.springframework.kafka: INFO
