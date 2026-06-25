@@ -9,14 +9,9 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
-
-    private static final String SECRET = "your-256-bit-secret-key-here-must-be-32-bytes";
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -34,8 +29,6 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withSecretKey(
-                new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256")
-        ).build();
+        return NimbusJwtDecoder.withJwkSetUri("http://auth-service:8081/.well-known/jwks.json").build();
     }
 }

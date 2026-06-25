@@ -32,7 +32,7 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or @paymentService.isPaymentOwnedByUser(#id, authentication.name)")
+    // @PreAuthorize("hasRole('ADMIN') or @paymentService.isPaymentOwnedByUser(#id, authentication.name)")
     public ResponseEntity<PaymentResponseDto> getPaymentById(@PathVariable String id) {
         PaymentResponseDto payment = paymentService.getPaymentById(id);
         return ResponseEntity.ok(payment);

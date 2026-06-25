@@ -25,7 +25,9 @@ spring:
           secret: your-256-bit-secret-key-here-must-be-32-bytes
 
 mongock:
-  change-log-scan-package: com.innowise.payment_service.mongock.changelogs
+  migration-scan-package:
+    - com.innowise.payment_service.mongock.changelogs
+  transaction-enabled: false
 
 server:
   port: ${SERVER_PORT:8083}
