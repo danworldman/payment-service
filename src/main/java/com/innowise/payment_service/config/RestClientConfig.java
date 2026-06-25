@@ -4,36 +4,32 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.reactive.function.client.ClientRequest;
-import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
-import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
-public class WebClientConfig {
+public class RestClientConfig {
 
     @Bean
-    public WebClient webClient() {
-        return WebClient.builder()
-                .filter(bearerTokenFilter())
+    public RestClient restClient() {
+        return RestClient.builder()
+                .requestInterceptor(bearerTokenInterceptor())
                 .build();
     }
 
-    private ExchangeFilterFunction bearerTokenFilter() {
-        return (request, next) -> {
+    private ClientHttpRequestInterceptor bearerTokenInterceptor() {
+        return (request, body, execution) -> {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest servletRequest = attributes.getRequest();
                 String authHeader = servletRequest.getHeader(HttpHeaders.AUTHORIZATION);
                 if (authHeader != null && !authHeader.isEmpty()) {
-                    ClientRequest filteredRequest = ClientRequest.from(request)
-                            .header(HttpHeaders.AUTHORIZATION, authHeader)
-                            .build();
-                    return next.exchange(filteredRequest);
+                    request.getHeaders().add(HttpHeaders.AUTHORIZATION, authHeader);
                 }
             }
-            return next.exchange(request);
+            return execution.execute(request, body);
         };
     }
 }

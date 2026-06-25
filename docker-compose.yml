@@ -1,15 +1,13 @@
 services:
   payment-service:
-    container_name: payment-app
+    container_name: payment-service
     build: .
     ports:
-      - "8083:8080"
+      - "8083:8083"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_MONGODB_URI=mongodb://root:example@payment-mongodb:27017/paymentdb?authSource=admin
-      - KAFKA_BOOTSTRAP_SERVERS=payment-kafka:9092
-      - EXTERNAL_API_URL=http://docker.internal
-      - MONGOCK_MIGRATION_SCAN_PACKAGE=com.innowise.payment_service.mongock.changelogs
+      - MONGO_URI=mongodb://mongodb:27017/payment_db
+      - KAFKA_SERVERS=kafka:9092
     depends_on:
       mongodb:
         condition: service_healthy
@@ -17,30 +15,24 @@ services:
         condition: service_healthy
 
   mongodb:
-    container_name: payment-mongodb
     image: mongo:4.4
+    container_name: mongodb
     ports:
       - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
-      MONGO_INITDB_DATABASE: paymentdb
+    volumes:
+      - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongo", "admin", "--username", "root", "--password", "example", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
       interval: 5s
       timeout: 3s
       retries: 5
-    volumes:
-      - mongo-data:/data/db
 
   zookeeper:
-    container_name: payment-zookeeper
     image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/2181"]
       interval: 5s
@@ -48,19 +40,19 @@ services:
       retries: 5
 
   kafka:
-    container_name: payment-kafka
     image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
     depends_on:
       zookeeper:
         condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: payment-zookeeper:2181
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://payment-kafka:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    ports:
-      - "9092:9092"
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/9092"]
       interval: 5s
@@ -68,4 +60,4 @@ services:
       retries: 5
 
 volumes:
-  mongo-data:
+  mongo_data:

@@ -1,18 +1,19 @@
 package com.innowise.payment_service.model.document;
 
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
-
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Objects;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,19 +23,31 @@ public class Payment {
     @Id
     private String id;
 
-    @Indexed
     @Field("order_id")
-    private String orderId;
+    private Long orderId;
 
-    @Indexed
     @Field("user_id")
-    private String userId;
+    private Long userId;
 
-    @Indexed
-    private String status;
+    @Field("status")
+    private PaymentStatus status;
 
+    @Field("timestamp")
     private Instant timestamp;
 
     @Field("payment_amount")
     private BigDecimal paymentAmount;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Payment payment = (Payment) o;
+        return Objects.equals(id, payment.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
 }

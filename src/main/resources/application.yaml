@@ -2,43 +2,16 @@ spring:
   application:
     name: payment-service
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
-  mongodb:
-    uri: ${MONGODB_URI:mongodb://localhost:27017/paymentdb}
-    auto-index-creation: false
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-    consumer:
-      group-id: payment-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          secret: your-256-bit-secret-key-here-must-be-32-bytes
+    active: local
+  mvc:
+    throw-exception-if-no-handler-found: true
+  resources:
+    add-mappings: false
+
+server:
+  port: 8083
 
 mongock:
   migration-scan-package:
     - com.innowise.payment_service.mongock.changelogs
   transaction-enabled: false
-
-server:
-  port: ${SERVER_PORT:8083}
-
-external:
-  api:
-    url: ${EXTERNAL_API_URL:http://localhost:8081/evaluate}
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      externalApi:
-        sliding-window-size: 10
-        failure-rate-threshold: 50

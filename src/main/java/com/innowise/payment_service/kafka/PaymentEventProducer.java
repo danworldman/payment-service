@@ -1,7 +1,7 @@
 package com.innowise.payment_service.kafka;
 
 import com.innowise.payment_service.model.document.Payment;
-import com.innowise.payment_service.model.event.PaymentEvent;
+import com.innowise.payment_service.model.event.PaymentCompletedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -10,11 +10,11 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PaymentEventProducer {
 
-    private final KafkaTemplate<String, PaymentEvent> kafkaTemplate;
+    private final KafkaTemplate<String, PaymentCompletedEvent> kafkaTemplate;
     private static final String TOPIC = "payment-events";
 
     public void sendPaymentEvent(Payment payment) {
-        PaymentEvent event = new PaymentEvent(payment.getOrderId(), payment.getStatus());
-        kafkaTemplate.send(TOPIC, event);
+        PaymentCompletedEvent event = new PaymentCompletedEvent(payment.getOrderId(), payment.getStatus().name());
+        kafkaTemplate.send(TOPIC, String.valueOf(payment.getOrderId()), event);
     }
 }

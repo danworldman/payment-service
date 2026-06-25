@@ -1,17 +1,15 @@
 spring:
-  mongodb:
-    uri: mongodb://localhost:27017/paymentdb
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://mongodb:27017/payment_db}
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_SERVERS:kafka:9092}
   security:
     oauth2:
       resourceserver:
         jwt:
-          secret: your-256-bit-secret-key-here-must-be-32-bytes
+          jwk-set-uri: http://auth-service:8081/oauth2/jwks
 
 external:
   api:
-    url: http://localhost:8081/evaluate
-
-server:
-  port: 8083
+    url: ${EXTERNAL_API_URL:http://external-api-service:8084/api/numbers}
