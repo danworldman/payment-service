@@ -1,5 +1,6 @@
 package com.innowise.payment_service.controller;
 
+import com.innowise.payment_service.exception.PaymentProcessingException;
 import com.innowise.payment_service.model.document.PaymentStatus;
 import com.innowise.payment_service.model.dto.PaymentRequestDto;
 import com.innowise.payment_service.model.dto.PaymentResponseDto;
@@ -31,13 +32,16 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PaymentResponseDto> createPayment(
-            @Valid @RequestBody PaymentRequestDto requestDto,
+            @Valid @RequestBody PaymentRequestDto paymentRequestDto,
             @AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null || jwt.getClaim("user_id") == null) {
+            throw new PaymentProcessingException("Missing user identity in token");
+        }
+
         Long userId = Long.valueOf(jwt.getClaim("user_id").toString());
-        PaymentResponseDto response = paymentService.initiatePayment(requestDto, userId);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        PaymentResponseDto paymentResponseDto = paymentService.initiatePayment(paymentRequestDto, userId);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(paymentResponseDto);
     }
 
     @GetMapping("/{id}")

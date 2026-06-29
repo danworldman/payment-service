@@ -1,0 +1,20 @@
+spring:
+  mongodb:
+    uri: ${SPRING_DATA_MONGODB_URI:mongodb://mongodb:27017/payment_db?connectTimeoutMS=5000&socketTimeoutMS=5000}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    properties:
+      max.block.ms: 3000
+      request.timeout.ms: 2000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://auth-service:8081/oauth2/jwks
+
+external:
+  api:
+    url: ${EXTERNAL_API_URL:http://external-api:8084/api/numbers}

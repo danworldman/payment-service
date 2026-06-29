@@ -23,7 +23,7 @@ public class PaymentProcessor {
             int generatedNumber = externalPaymentApiClient.generateRandomNumber();
             PaymentStatus finalStatus = (generatedNumber % 2 == 0) ? PaymentStatus.SUCCESS : PaymentStatus.FAILED;
             payment.setStatus(finalStatus);
-        } catch (Exception e) {
+        } catch (Exception exception) {
             payment.setStatus(PaymentStatus.FAILED);
         } finally {
             paymentDAO.save(payment);

@@ -6,8 +6,8 @@ services:
       - "8083:8083"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - MONGO_URI=mongodb://mongodb:27017/payment_db
-      - KAFKA_SERVERS=kafka:9092
+      - SPRING_MONGODB_URI=mongodb://mongodb:27017/payment_db?connectTimeoutMS=5000&socketTimeoutMS=5000
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
       mongodb:
         condition: service_healthy
@@ -22,7 +22,7 @@ services:
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      test: mongo --eval "db.adminCommand('ping')" --quiet || exit 1
       interval: 5s
       timeout: 3s
       retries: 5

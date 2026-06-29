@@ -21,12 +21,12 @@ public class RestClientConfig {
 
     private ClientHttpRequestInterceptor bearerTokenInterceptor() {
         return (request, body, execution) -> {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) {
-                HttpServletRequest servletRequest = attributes.getRequest();
-                String authHeader = servletRequest.getHeader(HttpHeaders.AUTHORIZATION);
-                if (authHeader != null && !authHeader.isEmpty()) {
-                    request.getHeaders().add(HttpHeaders.AUTHORIZATION, authHeader);
+            ServletRequestAttributes servletRequestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (servletRequestAttributes != null) {
+                HttpServletRequest httpServletRequest = servletRequestAttributes.getRequest();
+                String authorizationHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+                if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
+                    request.getHeaders().add(HttpHeaders.AUTHORIZATION, authorizationHeader);
                 }
             }
             return execution.execute(request, body);
