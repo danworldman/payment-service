@@ -32,6 +32,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PaymentResponseDto> createPayment(
             @Valid @RequestBody PaymentRequestDto paymentRequestDto,
             @AuthenticationPrincipal Jwt jwt) {
@@ -50,7 +51,8 @@ public class PaymentController {
             @PathVariable String id,
             @AuthenticationPrincipal Jwt jwt) {
         Long userId = Long.valueOf(jwt.getClaim("user_id").toString());
-        boolean isAdmin = jwt.getClaimAsStringList("roles") != null && jwt.getClaimAsStringList("roles").contains("ADMIN");
+        String role = jwt.getClaimAsString("role");
+        boolean isAdmin = "ADMIN".equals(role);
 
         PaymentResponseDto payment = paymentService.getPaymentById(id);
         if (!isAdmin && !payment.userId().equals(userId)) {
@@ -67,7 +69,8 @@ public class PaymentController {
             @RequestParam(required = false) Long userId,
             @AuthenticationPrincipal Jwt jwt) {
         Long authenticatedUserId = Long.valueOf(jwt.getClaim("user_id").toString());
-        boolean isAdmin = jwt.getClaimAsStringList("roles") != null && jwt.getClaimAsStringList("roles").contains("ADMIN");
+        String role = jwt.getClaimAsString("role");
+        boolean isAdmin = "ADMIN".equals(role);
         Long finalUserId = isAdmin ? userId : authenticatedUserId;
 
         List<PaymentResponseDto> payments = paymentService.getPaymentsByFilters(finalUserId, orderId, status);
@@ -82,7 +85,8 @@ public class PaymentController {
             @RequestParam Instant to,
             @AuthenticationPrincipal Jwt jwt) {
         Long authenticatedUserId = Long.valueOf(jwt.getClaim("user_id").toString());
-        boolean isAdmin = jwt.getClaimAsStringList("roles") != null && jwt.getClaimAsStringList("roles").contains("ADMIN");
+        String role = jwt.getClaimAsString("role");
+        boolean isAdmin = "ADMIN".equals(role);
 
         if (!isAdmin && !userId.equals(authenticatedUserId)) {
             throw new AccessDeniedException("Access denied to other user summary");
