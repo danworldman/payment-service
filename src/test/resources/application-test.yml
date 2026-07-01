@@ -3,16 +3,18 @@ spring:
     name: payment-service-test
   data:
     mongodb:
-      uri: ${spring.data.mongodb.uri}
+      uri: ${spring.data.mongodb.uri}?connectTimeoutMS=30000&socketTimeoutMS=30000
   kafka:
     bootstrap-servers: ${spring.kafka.bootstrap-servers}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
 mongock:
   migration-scan-package:
     - com.innowise.payment_service.mongock.changelogs
   transaction-enabled: false
+
 external:
   api:
     url: ${external.api.url}

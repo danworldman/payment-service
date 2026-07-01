@@ -246,12 +246,13 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
             restTemplate.postForEntity(baseUrl() + "/api/payments", entity, PaymentResponseDto.class);
         });
+
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
     }
 
     @Test
     void createPayment_shouldReturn403_whenTokenHasNoRole() {
-        String tokenWithoutRole = generateTestToken(DEFAULT_USER_ID, null);
+        String tokenWithoutRole = generateTestToken(DEFAULT_USER_ID, "");
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + tokenWithoutRole);
@@ -260,6 +261,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
             restTemplate.postForEntity(baseUrl() + "/api/payments", entity, PaymentResponseDto.class);
         });
+
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
     }
 }

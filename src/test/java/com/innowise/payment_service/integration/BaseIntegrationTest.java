@@ -28,6 +28,7 @@ import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.time.Duration;
 import java.util.Date;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -52,10 +53,12 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     protected ObjectMapper objectMapper;
 
     static {
-        mongoDBContainer = new MongoDBContainer(DockerImageName.parse("mongo:4.4"));
+        mongoDBContainer = new MongoDBContainer(DockerImageName.parse("mongo:4.4"))
+                .withStartupTimeout(Duration.ofMinutes(2));
         mongoDBContainer.start();
 
-        kafkaContainer = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"));
+        kafkaContainer = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
+                .withStartupTimeout(Duration.ofMinutes(2));
         kafkaContainer.start();
 
         wireMockServer = new WireMockServer(0);
