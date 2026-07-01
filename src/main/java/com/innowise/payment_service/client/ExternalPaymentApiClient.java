@@ -1,6 +1,7 @@
 package com.innowise.payment_service.client;
 
 import com.innowise.payment_service.exception.PaymentProcessingException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -14,7 +15,7 @@ public class ExternalPaymentApiClient {
     @Value("${external.api.url}")
     private String externalApiUrl;
 
-    public ExternalPaymentApiClient(RestClient restClient) {
+    public ExternalPaymentApiClient(@Qualifier("cleanRestClient") RestClient restClient) {
         this.restClient = restClient;
     }
 
