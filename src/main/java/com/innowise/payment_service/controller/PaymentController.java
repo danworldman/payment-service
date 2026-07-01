@@ -29,6 +29,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PaymentController {
 
+    private static final String USER_ID_CLAIM = "user_id";
+    private static final String ROLE_ADMIN = "ADMIN";
+
     private final PaymentService paymentService;
 
     @PostMapping
@@ -36,11 +39,11 @@ public class PaymentController {
     public ResponseEntity<PaymentResponseDto> createPayment(
             @Valid @RequestBody PaymentRequestDto paymentRequestDto,
             @AuthenticationPrincipal Jwt jwt) {
-        if (jwt == null || jwt.getClaim("user_id") == null) {
+        if (jwt == null || jwt.getClaim(USER_ID_CLAIM) == null) {
             throw new PaymentProcessingException("Missing user identity in token");
         }
 
-        Long userId = Long.valueOf(jwt.getClaim("user_id").toString());
+        Long userId = Long.valueOf(jwt.getClaim(USER_ID_CLAIM).toString());
         PaymentResponseDto paymentResponseDto = paymentService.initiatePayment(paymentRequestDto, userId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(paymentResponseDto);
     }
@@ -50,9 +53,9 @@ public class PaymentController {
     public ResponseEntity<PaymentResponseDto> getPaymentById(
             @PathVariable String id,
             @AuthenticationPrincipal Jwt jwt) {
-        Long userId = Long.valueOf(jwt.getClaim("user_id").toString());
+        Long userId = Long.valueOf(jwt.getClaim(USER_ID_CLAIM).toString());
         String role = jwt.getClaimAsString("role");
-        boolean isAdmin = "ADMIN".equals(role);
+        boolean isAdmin = ROLE_ADMIN.equals(role);
 
         PaymentResponseDto payment = paymentService.getPaymentById(id);
         if (!isAdmin && !payment.userId().equals(userId)) {
@@ -68,9 +71,9 @@ public class PaymentController {
             @RequestParam(required = false) PaymentStatus status,
             @RequestParam(required = false) Long userId,
             @AuthenticationPrincipal Jwt jwt) {
-        Long authenticatedUserId = Long.valueOf(jwt.getClaim("user_id").toString());
+        Long authenticatedUserId = Long.valueOf(jwt.getClaim(USER_ID_CLAIM).toString());
         String role = jwt.getClaimAsString("role");
-        boolean isAdmin = "ADMIN".equals(role);
+        boolean isAdmin = ROLE_ADMIN.equals(role);
         Long finalUserId = isAdmin ? userId : authenticatedUserId;
 
         List<PaymentResponseDto> payments = paymentService.getPaymentsByFilters(finalUserId, orderId, status);
@@ -84,9 +87,9 @@ public class PaymentController {
             @RequestParam Instant from,
             @RequestParam Instant to,
             @AuthenticationPrincipal Jwt jwt) {
-        Long authenticatedUserId = Long.valueOf(jwt.getClaim("user_id").toString());
+        Long authenticatedUserId = Long.valueOf(jwt.getClaim(USER_ID_CLAIM).toString());
         String role = jwt.getClaimAsString("role");
-        boolean isAdmin = "ADMIN".equals(role);
+        boolean isAdmin = ROLE_ADMIN.equals(role);
 
         if (!isAdmin && !userId.equals(authenticatedUserId)) {
             throw new AccessDeniedException("Access denied to other user summary");

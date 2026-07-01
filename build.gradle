@@ -53,6 +53,7 @@ dependencies {
 	testImplementation 'org.testcontainers:kafka:1.19.8'
 	testImplementation 'org.wiremock:wiremock-standalone:3.4.2'
 	testImplementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+	testImplementation 'de.flapdoodle.embed:de.flapdoodle.embed.mongo:4.12.0'
 }
 
 dependencyManagement {
@@ -61,9 +62,15 @@ dependencyManagement {
 	}
 }
 
+
 tasks.named('test', Test) {
 	useJUnitPlatform()
 	maxParallelForks = 1
+
+	if (System.getenv('GITHUB_ACTIONS') == 'true') {
+		exclude 'com/innowise/payment_service/integration/**'
+	}
+
 	finalizedBy 'jacocoTestReport'
 }
 

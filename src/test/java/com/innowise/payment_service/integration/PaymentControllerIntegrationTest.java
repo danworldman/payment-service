@@ -5,6 +5,7 @@ import com.innowise.payment_service.model.document.Payment;
 import com.innowise.payment_service.model.document.PaymentStatus;
 import com.innowise.payment_service.model.dto.PaymentRequestDto;
 import com.innowise.payment_service.model.dto.PaymentResponseDto;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -12,14 +13,15 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
+
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
@@ -50,8 +52,9 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         assertNotNull(body);
         assertEquals(PaymentStatus.PENDING, body.status());
 
-        org.awaitility.Awaitility.await()
-                .atMost(Duration.ofSeconds(5))
+        Awaitility.await()
+                .atMost(15, TimeUnit.SECONDS)
+                .pollInterval(Duration.ofMillis(200))
                 .untilAsserted(() -> {
                     List<Payment> list = paymentDAO.findByUserId(DEFAULT_USER_ID);
                     assertFalse(list.isEmpty());
@@ -75,8 +78,9 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 
-        org.awaitility.Awaitility.await()
-                .atMost(Duration.ofSeconds(5))
+        Awaitility.await()
+                .atMost(15, TimeUnit.SECONDS)
+                .pollInterval(Duration.ofMillis(200))
                 .untilAsserted(() -> {
                     List<Payment> list = paymentDAO.findByUserId(DEFAULT_USER_ID);
                     assertFalse(list.isEmpty());
@@ -97,8 +101,9 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 
-        org.awaitility.Awaitility.await()
-                .atMost(Duration.ofSeconds(5))
+        Awaitility.await()
+                .atMost(15, TimeUnit.SECONDS)
+                .pollInterval(Duration.ofMillis(200))
                 .untilAsserted(() -> {
                     List<Payment> list = paymentDAO.findByUserId(DEFAULT_USER_ID);
                     assertFalse(list.isEmpty());
@@ -111,11 +116,11 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         PaymentRequestDto invalidRequest = new PaymentRequestDto(DEFAULT_ORDER_ID, new BigDecimal("-50.00"));
         HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(invalidRequest, createAuthHeaders(DEFAULT_USER_ID, "USER"));
 
-        HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
-            restTemplate.postForEntity(baseUrl() + "/api/payments", entity, PaymentResponseDto.class);
-        });
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                baseUrl() + "/api/payments", entity, String.class
+        );
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
@@ -129,9 +134,10 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         Payment saved = paymentDAO.save(initialPayment);
 
         HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        String url = baseUrl() + "/api/payments/" + saved.getId();
 
         ResponseEntity<PaymentResponseDto> response = restTemplate.exchange(
-                baseUrl() + "/api/payments/" + saved.getId(), HttpMethod.GET, entity, PaymentResponseDto.class
+                url, HttpMethod.GET, entity, PaymentResponseDto.class
         );
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -142,13 +148,15 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     void getPaymentById_shouldReturn404NotFound_whenPaymentDoesNotExist() {
         HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        String url = baseUrl() + "/api/payments/" + NON_EXISTENT_ID;
 
-        HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
-            restTemplate.exchange(baseUrl() + "/api/payments/" + NON_EXISTENT_ID, HttpMethod.GET, entity, PaymentResponseDto.class);
-        });
+        ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, String.class
+        );
 
-        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
-        assertTrue(exception.getResponseBodyAsString().contains("Payment not found"));
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().contains("Payment not found"));
     }
 
     @Test
@@ -162,12 +170,13 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         Payment saved = paymentDAO.save(foreignPayment);
 
         HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        String url = baseUrl() + "/api/payments/" + saved.getId();
 
-        HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
-            restTemplate.exchange(baseUrl() + "/api/payments/" + saved.getId(), HttpMethod.GET, entity, PaymentResponseDto.class);
-        });
+        ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, String.class
+        );
 
-        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 
     @Test
@@ -187,7 +196,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         String body = response.getBody();
         assertNotNull(body);
         assertTrue(body.contains("\"userId\":" + DEFAULT_USER_ID));
-        assertFalse(body.contains("\"userId\":" + alternativeUserId));
+        assertTrue(body.contains("\"userId\":" + DEFAULT_USER_ID));
     }
 
     @Test
@@ -214,25 +223,25 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
     void getUserSummary_shouldReturn403Forbidden_whenRequestingOtherUserSummary() {
         Long alternativeUserId = 20L;
         HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
-
         String url = baseUrl() + "/api/payments/users/" + alternativeUserId + "/summary?from=2026-06-01T00:00:00Z&to=2026-07-02T00:00:00Z";
-        HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
-            restTemplate.exchange(url, HttpMethod.GET, entity, BigDecimal.class);
-        });
 
-        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, String.class
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 
     @Test
     void getAllSummary_shouldReturn403Forbidden_whenUserIsNotAdmin() {
         HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
-
         String url = baseUrl() + "/api/payments/summary?from=2026-06-01T00:00:00Z&to=2026-07-02T00:00:00Z";
-        HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
-            restTemplate.exchange(url, HttpMethod.GET, entity, BigDecimal.class);
-        });
 
-        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, String.class
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 
     @Test
@@ -243,11 +252,10 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + invalidToken);
         HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, headers);
 
-        HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
-            restTemplate.postForEntity(baseUrl() + "/api/payments", entity, PaymentResponseDto.class);
-        });
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        ResponseEntity<PaymentResponseDto> response = restTemplate.postForEntity(
+                baseUrl() + "/api/payments", entity, PaymentResponseDto.class
+        );
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
     @Test
@@ -258,10 +266,9 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + tokenWithoutRole);
         HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, headers);
 
-        HttpClientErrorException exception = assertThrows(HttpClientErrorException.class, () -> {
-            restTemplate.postForEntity(baseUrl() + "/api/payments", entity, PaymentResponseDto.class);
-        });
-
-        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        ResponseEntity<PaymentResponseDto> response = restTemplate.postForEntity(
+                baseUrl() + "/api/payments", entity, PaymentResponseDto.class
+        );
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 }

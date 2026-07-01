@@ -18,23 +18,30 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
+import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.RestTemplate;
-import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.time.Duration;
 import java.util.Date;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@EnableAsync
-@Import(TestSecurityConfig.class)
+@EmbeddedKafka(partitions = 1, topics = {"payment-events"})
+@Import({TestSecurityConfig.class})
+@TestPropertySource(properties = {
+        "mongock.enabled=false",
+        "spring.task.execution.pool.core-size=4",
+        "spring.main.allow-bean-definition-overriding=true"
+})
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class BaseIntegrationTest extends PaymentTestData {
 
     @LocalServerPort
@@ -43,7 +50,6 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     protected RestTemplate restTemplate;
     protected static final WireMockServer wireMockServer;
     protected static final MongoDBContainer mongoDBContainer;
-    protected static final KafkaContainer kafkaContainer;
     public static final KeyPair keyPair;
 
     @Autowired
@@ -52,18 +58,16 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     @Autowired
     protected ObjectMapper objectMapper;
 
-    static {
-        mongoDBContainer = new MongoDBContainer(DockerImageName.parse("mongo:4.4"))
-                .withStartupTimeout(Duration.ofMinutes(2));
-        mongoDBContainer.start();
+    @Autowired(required = false)
+    protected EmbeddedKafkaBroker embeddedKafkaBroker;
 
-        kafkaContainer = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
-                .withStartupTimeout(Duration.ofMinutes(2));
-        kafkaContainer.start();
+    static {
+        mongoDBContainer = new MongoDBContainer(DockerImageName.parse("mongo:4.4"));
+        mongoDBContainer.start();
 
         wireMockServer = new WireMockServer(0);
         wireMockServer.start();
-        WireMock.configureFor("localhost", wireMockServer.port());
+        WireMock.configureFor("127.0.0.1", wireMockServer.port());
 
         try {
             KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
@@ -77,13 +81,18 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
-        registry.add("spring.kafka.bootstrap-servers", kafkaContainer::getBootstrapServers);
-        registry.add("external.api.url", () -> "http://localhost:" + wireMockServer.port() + "/api/numbers");
+        registry.add("external.api.url", () -> "http://127.0.0.1:" + wireMockServer.port() + "/api/numbers");
     }
 
     @BeforeEach
     void setUpBase() {
         restTemplate = new RestTemplate();
+        restTemplate.setErrorHandler(new org.springframework.web.client.DefaultResponseErrorHandler() {
+            @Override
+            public boolean hasError(org.springframework.http.HttpStatusCode statusCode) {
+                return false;
+            }
+        });
         wireMockServer.resetRequests();
         wireMockServer.resetToDefaultMappings();
         mockExternalApi();
@@ -95,13 +104,13 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     }
 
     protected String baseUrl() {
-        return "http://localhost:" + port;
+        return "http://127.0.0.1:" + port;
     }
 
     protected String generateTestToken(Long userId, String role) {
         try {
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .claim("user_id", userId.toString())
+                    .claim("user_id", userId)
                     .claim("role", role)
                     .expirationTime(new Date(System.currentTimeMillis() + 300000))
                     .build();

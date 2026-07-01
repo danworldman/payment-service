@@ -3,7 +3,6 @@ package com.innowise.payment_service.service.impl;
 import com.innowise.payment_service.client.ExternalPaymentApiClient;
 import com.innowise.payment_service.dao.PaymentDAO;
 import com.innowise.payment_service.kafka.PaymentEventProducer;
-import com.innowise.payment_service.model.document.Payment;
 import com.innowise.payment_service.model.document.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
@@ -18,16 +17,18 @@ public class PaymentProcessor {
     private final PaymentEventProducer paymentEventProducer;
 
     @Async
-    public void processPaymentAsync(Payment payment) {
-        try {
-            int generatedNumber = externalPaymentApiClient.generateRandomNumber();
-            PaymentStatus finalStatus = (generatedNumber % 2 == 0) ? PaymentStatus.SUCCESS : PaymentStatus.FAILED;
-            payment.setStatus(finalStatus);
-        } catch (Exception exception) {
-            payment.setStatus(PaymentStatus.FAILED);
-        } finally {
-            paymentDAO.save(payment);
-            paymentEventProducer.sendPaymentEvent(payment);
-        }
+    public void processPaymentAsync(String paymentId) {
+        paymentDAO.findById(paymentId).ifPresent(payment -> {
+            try {
+                int generatedNumber = externalPaymentApiClient.generateRandomNumber();
+                PaymentStatus finalStatus = (generatedNumber % 2 == 0) ? PaymentStatus.SUCCESS : PaymentStatus.FAILED;
+                payment.setStatus(finalStatus);
+            } catch (Exception exception) {
+                payment.setStatus(PaymentStatus.FAILED);
+            } finally {
+                paymentDAO.save(payment);
+                paymentEventProducer.sendPaymentEvent(payment);
+            }
+        });
     }
 }

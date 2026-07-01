@@ -33,7 +33,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
 
         Payment savedPayment = paymentDAO.save(payment);
-        paymentProcessor.processPaymentAsync(savedPayment);
+        paymentProcessor.processPaymentAsync(savedPayment.getId());
         return paymentMapper.toResponseDto(savedPayment);
     }
 

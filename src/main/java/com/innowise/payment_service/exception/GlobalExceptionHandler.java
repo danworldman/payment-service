@@ -63,7 +63,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGenericException(Exception exception) {
-        exception.printStackTrace();
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected internal server error occurred: " + exception.getMessage());
     }
 

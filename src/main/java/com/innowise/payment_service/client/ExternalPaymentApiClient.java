@@ -29,6 +29,8 @@ public class ExternalPaymentApiClient {
                 return ((Number) apiResponse.get("number")).intValue();
             }
             throw new PaymentProcessingException("Invalid external API response structure");
+        } catch (PaymentProcessingException exception) {
+            throw exception;
         } catch (Exception exception) {
             throw new PaymentProcessingException("External API unavailable", exception);
         }
