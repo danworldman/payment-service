@@ -33,10 +33,12 @@ public class RestClientConfig {
             if (servletRequestAttributes != null) {
                 HttpServletRequest httpServletRequest = servletRequestAttributes.getRequest();
                 String authorizationHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+
                 if (authorizationHeader != null && !authorizationHeader.isEmpty()) {
                     request.getHeaders().add(HttpHeaders.AUTHORIZATION, authorizationHeader);
                 }
             }
+
             return execution.execute(request, body);
         };
     }

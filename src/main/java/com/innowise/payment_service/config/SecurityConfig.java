@@ -15,6 +15,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -54,6 +55,7 @@ public class SecurityConfig {
     public Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(this::extractAuthorities);
+
         return converter;
     }
 
@@ -62,6 +64,7 @@ public class SecurityConfig {
         if (role == null || role.isBlank()) {
             return Collections.emptyList();
         }
+
         return List.of(new SimpleGrantedAuthority("ROLE_" + role));
     }
 }

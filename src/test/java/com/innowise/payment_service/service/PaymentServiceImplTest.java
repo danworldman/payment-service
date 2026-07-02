@@ -12,17 +12,18 @@ import com.innowise.payment_service.testdata.PaymentTestData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class PaymentServiceImplTest extends PaymentTestData {
+class PaymentServiceImplTest extends PaymentTestData {
 
     private PaymentDAO paymentDAO;
     private PaymentMapper paymentMapper;
@@ -39,13 +40,13 @@ public class PaymentServiceImplTest extends PaymentTestData {
 
     @Test
     void initiatePayment_shouldReturnPaymentResponse_whenValid() {
-        when(paymentDAO.save(Mockito.any(Payment.class))).thenReturn(defaultPendingPayment);
+        when(paymentDAO.save(any(Payment.class))).thenReturn(defaultPendingPayment);
         when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
         PaymentResponseDto result = paymentService.initiatePayment(defaultPaymentRequestDto, DEFAULT_USER_ID);
 
         assertThat(result).isNotNull();
-        verify(paymentDAO).save(Mockito.any(Payment.class));
+        verify(paymentDAO).save(any(Payment.class));
         verify(paymentProcessor).processPaymentAsync(DEFAULT_PAYMENT_ID);
     }
 
@@ -62,87 +63,110 @@ public class PaymentServiceImplTest extends PaymentTestData {
 
     @Test
     void getPaymentById_shouldThrowPaymentNotFoundException_whenDoesNotExist() {
-        when(paymentDAO.findById("INVALID")).thenReturn(Optional.empty());
+        when(paymentDAO.findById(INVALID_ID)).thenReturn(Optional.empty());
 
-        assertThrows(PaymentNotFoundException.class, () -> {
-            paymentService.getPaymentById("INVALID");
-        });
+        assertThrows(PaymentNotFoundException.class, () -> paymentService.getPaymentById(INVALID_ID));
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallCorrectDaoMethod_whenAllFiltersPresent() {
-        when(paymentDAO.findByUserIdAndOrderIdAndStatus(DEFAULT_USER_ID, DEFAULT_ORDER_ID, PaymentStatus.PENDING))
+    void getPaymentsByFilters_shouldReturnList_whenAllFiltersPresent() {
+        when(paymentDAO.findByDynamicFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, PaymentStatus.PENDING))
                 .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, PaymentStatus.PENDING);
+        List<PaymentResponseDto> result =
+                paymentService.getPaymentsByFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, PaymentStatus.PENDING);
 
-        verify(paymentDAO).findByUserIdAndOrderIdAndStatus(DEFAULT_USER_ID, DEFAULT_ORDER_ID, PaymentStatus.PENDING);
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst()).isEqualTo(defaultPaymentResponseDto);
+        verify(paymentDAO).findByDynamicFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, PaymentStatus.PENDING);
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallFindByUserIdAndOrderId_whenStatusMissing() {
-        when(paymentDAO.findByUserIdAndOrderId(DEFAULT_USER_ID, DEFAULT_ORDER_ID))
+    void getPaymentsByFilters_shouldReturnList_whenUserIdAndOrderId() {
+        when(paymentDAO.findByDynamicFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, null))
                 .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, null);
+        List<PaymentResponseDto> result =
+                paymentService.getPaymentsByFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, null);
 
-        verify(paymentDAO).findByUserIdAndOrderId(DEFAULT_USER_ID, DEFAULT_ORDER_ID);
+        assertThat(result).hasSize(1);
+        verify(paymentDAO).findByDynamicFilters(DEFAULT_USER_ID, DEFAULT_ORDER_ID, null);
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallFindByUserIdAndStatus_whenOrderIdMissing() {
-        when(paymentDAO.findByUserIdAndStatus(DEFAULT_USER_ID, PaymentStatus.PENDING))
+    void getPaymentsByFilters_shouldReturnList_whenUserIdAndStatus() {
+        when(paymentDAO.findByDynamicFilters(DEFAULT_USER_ID, null, PaymentStatus.PENDING))
                 .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(DEFAULT_USER_ID, null, PaymentStatus.PENDING);
+        List<PaymentResponseDto> result =
+                paymentService.getPaymentsByFilters(DEFAULT_USER_ID, null, PaymentStatus.PENDING);
 
-        verify(paymentDAO).findByUserIdAndStatus(DEFAULT_USER_ID, PaymentStatus.PENDING);
+        assertThat(result).hasSize(1);
+        verify(paymentDAO).findByDynamicFilters(DEFAULT_USER_ID, null, PaymentStatus.PENDING);
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallFindByOrderIdAndStatus_whenUserIdMissing() {
-        when(paymentDAO.findByOrderIdAndStatus(DEFAULT_ORDER_ID, PaymentStatus.PENDING))
+    void getPaymentsByFilters_shouldReturnList_whenOrderIdAndStatus() {
+        when(paymentDAO.findByDynamicFilters(null, DEFAULT_ORDER_ID, PaymentStatus.PENDING))
                 .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(null, DEFAULT_ORDER_ID, PaymentStatus.PENDING);
+        List<PaymentResponseDto> result =
+                paymentService.getPaymentsByFilters(null, DEFAULT_ORDER_ID, PaymentStatus.PENDING);
 
-        verify(paymentDAO).findByOrderIdAndStatus(DEFAULT_ORDER_ID, PaymentStatus.PENDING);
+        assertThat(result).hasSize(1);
+        verify(paymentDAO).findByDynamicFilters(null, DEFAULT_ORDER_ID, PaymentStatus.PENDING);
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallFindByUserId_whenOnlyUserIdIsPresent() {
-        when(paymentDAO.findByUserId(DEFAULT_USER_ID)).thenReturn(List.of(defaultPendingPayment));
+    void getPaymentsByFilters_shouldReturnList_whenOnlyUserId() {
+        when(paymentDAO.findByDynamicFilters(DEFAULT_USER_ID, null, null))
+                .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(DEFAULT_USER_ID, null, null);
+        List<PaymentResponseDto> result = paymentService.getPaymentsByFilters(DEFAULT_USER_ID, null, null);
 
-        verify(paymentDAO).findByUserId(DEFAULT_USER_ID);
+        assertThat(result).hasSize(1);
+        verify(paymentDAO).findByDynamicFilters(DEFAULT_USER_ID, null, null);
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallFindByOrderId_whenOnlyOrderIdIsPresent() {
-        when(paymentDAO.findByOrderId(DEFAULT_ORDER_ID)).thenReturn(List.of(defaultPendingPayment));
+    void getPaymentsByFilters_shouldReturnList_whenOnlyOrderId() {
+        when(paymentDAO.findByDynamicFilters(null, DEFAULT_ORDER_ID, null))
+                .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(null, DEFAULT_ORDER_ID, null);
+        List<PaymentResponseDto> result = paymentService.getPaymentsByFilters(null, DEFAULT_ORDER_ID, null);
 
-        verify(paymentDAO).findByOrderId(DEFAULT_ORDER_ID);
+        assertThat(result).hasSize(1);
+        verify(paymentDAO).findByDynamicFilters(null, DEFAULT_ORDER_ID, null);
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallFindByStatus_whenOnlyStatusIsPresent() {
-        when(paymentDAO.findByStatus(PaymentStatus.PENDING)).thenReturn(List.of(defaultPendingPayment));
+    void getPaymentsByFilters_shouldReturnList_whenOnlyStatus() {
+        when(paymentDAO.findByDynamicFilters(null, null, PaymentStatus.PENDING))
+                .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(null, null, PaymentStatus.PENDING);
+        List<PaymentResponseDto> result = paymentService.getPaymentsByFilters(null, null, PaymentStatus.PENDING);
 
-        verify(paymentDAO).findByStatus(PaymentStatus.PENDING);
+        assertThat(result).hasSize(1);
+        verify(paymentDAO).findByDynamicFilters(null, null, PaymentStatus.PENDING);
     }
 
     @Test
-    void getPaymentsByFilters_shouldCallFindAll_whenNoFiltersPassed() {
-        when(paymentDAO.findAll()).thenReturn(List.of(defaultPendingPayment));
+    void getPaymentsByFilters_shouldReturnAll_whenNoFilters() {
+        when(paymentDAO.findByDynamicFilters(null, null, null))
+                .thenReturn(List.of(defaultPendingPayment));
+        when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
-        paymentService.getPaymentsByFilters(null, null, null);
+        List<PaymentResponseDto> result = paymentService.getPaymentsByFilters(null, null, null);
 
-        verify(paymentDAO).findAll();
+        assertThat(result).hasSize(1);
+        verify(paymentDAO).findByDynamicFilters(null, null, null);
     }
 
     @Test
@@ -180,17 +204,16 @@ public class PaymentServiceImplTest extends PaymentTestData {
     void isPaymentOwnedByUser_shouldReturnFalse_whenOwnerMismatches() {
         when(paymentDAO.findById(DEFAULT_PAYMENT_ID)).thenReturn(Optional.of(defaultPendingPayment));
 
-        boolean result = paymentService.isPaymentOwnedByUser(DEFAULT_PAYMENT_ID, 999L);
+        boolean result = paymentService.isPaymentOwnedByUser(DEFAULT_PAYMENT_ID, OTHER_USER_ID);
 
         assertThat(result).isFalse();
     }
 
     @Test
     void isPaymentOwnedByUser_shouldThrowPaymentNotFoundException_whenPaymentDoesNotExist() {
-        when(paymentDAO.findById("INVALID")).thenReturn(Optional.empty());
+        when(paymentDAO.findById(INVALID_ID)).thenReturn(Optional.empty());
 
-        assertThrows(PaymentNotFoundException.class, () -> {
-            paymentService.isPaymentOwnedByUser("INVALID", DEFAULT_USER_ID);
-        });
+        assertThrows(PaymentNotFoundException.class,
+                () -> paymentService.isPaymentOwnedByUser(INVALID_ID, DEFAULT_USER_ID));
     }
 }

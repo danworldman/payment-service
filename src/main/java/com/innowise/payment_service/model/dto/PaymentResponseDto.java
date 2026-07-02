@@ -7,8 +7,8 @@ import java.time.Instant;
 
 public record PaymentResponseDto(
         String id,
-        Long  orderId,
-        Long  userId,
+        Long orderId,
+        Long userId,
         PaymentStatus status,
         Instant timestamp,
         BigDecimal paymentAmount

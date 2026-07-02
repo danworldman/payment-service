@@ -70,17 +70,9 @@ class PaymentControllerTest extends PaymentTestData {
                 .build();
     }
 
-    private void prepareJwt(Long userId, String role) {
-        stubJwt = Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .claim("user_id", userId)
-                .claim("role", role)
-                .build();
-    }
-
     @Test
     void createPayment_shouldReturn202Accepted_whenTokenIsValid() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "USER");
+        prepareJwt(DEFAULT_USER_ID, USER_ROLE);
         when(paymentService.initiatePayment(any(PaymentRequestDto.class), eq(DEFAULT_USER_ID)))
                 .thenReturn(defaultPaymentResponseDto);
 
@@ -93,8 +85,8 @@ class PaymentControllerTest extends PaymentTestData {
 
     @Test
     void createPayment_shouldReturnBadRequest_whenValidationFails() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "USER");
-        PaymentRequestDto invalidRequest = new PaymentRequestDto(null, new BigDecimal("-10.00"));
+        prepareJwt(DEFAULT_USER_ID, USER_ROLE);
+        PaymentRequestDto invalidRequest = new PaymentRequestDto(null, NEGATIVE_AMOUNT);
 
         mockMvc.perform(post("/api/payments")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -106,19 +98,19 @@ class PaymentControllerTest extends PaymentTestData {
     void createPayment_shouldThrowPaymentProcessingException_whenUserIdClaimMissing() throws Exception {
         stubJwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .claim("role", "USER")
+                .claim("role", "USER") // нет user_id
                 .build();
 
         mockMvc.perform(post("/api/payments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(defaultPaymentRequestDto)))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.detail").value("An unexpected internal server error occurred: Missing user identity in token"));
+                .andExpect(jsonPath("$.detail").value("Missing user identity in token"));
     }
 
     @Test
     void getPaymentById_shouldReturnPayment_whenUserOwnsPayment() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "USER");
+        prepareJwt(DEFAULT_USER_ID, USER_ROLE);
         when(paymentService.getPaymentById(DEFAULT_PAYMENT_ID)).thenReturn(defaultPaymentResponseDto);
 
         mockMvc.perform(get("/api/payments/{id}", DEFAULT_PAYMENT_ID))
@@ -128,9 +120,9 @@ class PaymentControllerTest extends PaymentTestData {
 
     @Test
     void getPaymentById_shouldReturnForbidden_whenUserAccessesOtherPayment() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "USER");
+        prepareJwt(DEFAULT_USER_ID, USER_ROLE);
         PaymentResponseDto otherPayment = new PaymentResponseDto(
-                DEFAULT_PAYMENT_ID, DEFAULT_ORDER_ID, 999L,
+                DEFAULT_PAYMENT_ID, DEFAULT_ORDER_ID, OTHER_USER_ID,
                 PaymentStatus.PENDING, DEFAULT_TIMESTAMP, DEFAULT_AMOUNT
         );
         when(paymentService.getPaymentById(DEFAULT_PAYMENT_ID)).thenReturn(otherPayment);
@@ -141,21 +133,21 @@ class PaymentControllerTest extends PaymentTestData {
 
     @Test
     void getPaymentById_shouldReturnPayment_whenAdminAccessesAny() throws Exception {
-        prepareJwt(999L, "ADMIN");
+        prepareJwt(OTHER_USER_ID, ADMIN_ROLE);
         PaymentResponseDto otherPayment = new PaymentResponseDto(
-                DEFAULT_PAYMENT_ID, DEFAULT_ORDER_ID, 999L,
+                DEFAULT_PAYMENT_ID, DEFAULT_ORDER_ID, OTHER_USER_ID,
                 PaymentStatus.PENDING, DEFAULT_TIMESTAMP, DEFAULT_AMOUNT
         );
         when(paymentService.getPaymentById(DEFAULT_PAYMENT_ID)).thenReturn(otherPayment);
 
         mockMvc.perform(get("/api/payments/{id}", DEFAULT_PAYMENT_ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.userId").value(999L));
+                .andExpect(jsonPath("$.userId").value(OTHER_USER_ID));
     }
 
     @Test
     void getPayments_shouldUseAuthenticatedUserId_whenUserRole() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "USER");
+        prepareJwt(DEFAULT_USER_ID, USER_ROLE);
         when(paymentService.getPaymentsByFilters(eq(DEFAULT_USER_ID), eq(null), eq(null)))
                 .thenReturn(List.of(defaultPaymentResponseDto));
 
@@ -166,58 +158,55 @@ class PaymentControllerTest extends PaymentTestData {
 
     @Test
     void getPayments_shouldUseProvidedUserId_whenAdminRole() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "ADMIN");
-        Long targetUserId = 42L;
-        when(paymentService.getPaymentsByFilters(eq(targetUserId), eq(null), eq(null)))
+        prepareJwt(DEFAULT_USER_ID, ADMIN_ROLE);
+        when(paymentService.getPaymentsByFilters(eq(OTHER_USER_ID), eq(null), eq(null)))
                 .thenReturn(List.of(defaultPaymentResponseDto));
 
         mockMvc.perform(get("/api/payments")
-                        .param("userId", targetUserId.toString()))
+                        .param("userId", OTHER_USER_ID.toString()))
                 .andExpect(status().isOk());
     }
 
     @Test
     void getUserSummary_shouldReturnTotal_whenUserAccessesOwnSummary() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "USER");
-        Instant from = Instant.parse("2026-01-01T00:00:00Z");
-        Instant to = Instant.parse("2026-12-31T23:59:59Z");
-        BigDecimal total = new BigDecimal("500.00");
-        when(paymentService.getTotalSuccessfulPaymentsForUser(eq(DEFAULT_USER_ID), eq(from), eq(to)))
-                .thenReturn(total);
+        prepareJwt(DEFAULT_USER_ID, USER_ROLE);
+        when(paymentService.getTotalSuccessfulPaymentsForUser(eq(DEFAULT_USER_ID), eq(SUMMARY_FROM), eq(SUMMARY_TO)))
+                .thenReturn(TOTAL_AMOUNT);
 
         mockMvc.perform(get("/api/payments/users/{userId}/summary", DEFAULT_USER_ID)
-                        .param("from", from.toString())
-                        .param("to", to.toString()))
+                        .param("from", SUMMARY_FROM.toString())
+                        .param("to", SUMMARY_TO.toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").value(total.doubleValue()));
+                .andExpect(jsonPath("$").value(TOTAL_AMOUNT.doubleValue()));
     }
 
     @Test
     void getUserSummary_shouldReturnForbidden_whenUserAccessesOtherSummary() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "USER");
-        Long otherUserId = 999L;
-        Instant from = Instant.parse("2026-01-01T00:00:00Z");
-        Instant to = Instant.parse("2026-12-31T23:59:59Z");
-
-        mockMvc.perform(get("/api/payments/users/{userId}/summary", otherUserId)
-                        .param("from", from.toString())
-                        .param("to", to.toString()))
+        prepareJwt(DEFAULT_USER_ID, USER_ROLE);
+        mockMvc.perform(get("/api/payments/users/{userId}/summary", OTHER_USER_ID)
+                        .param("from", SUMMARY_FROM.toString())
+                        .param("to", SUMMARY_TO.toString()))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void getAllSummary_shouldReturnTotal_whenAdminRole() throws Exception {
-        prepareJwt(DEFAULT_USER_ID, "ADMIN");
-        Instant from = Instant.parse("2026-01-01T00:00:00Z");
-        Instant to = Instant.parse("2026-12-31T23:59:59Z");
-        BigDecimal total = new BigDecimal("1000.00");
-        when(paymentService.getTotalSuccessfulPaymentsForAll(eq(from), eq(to)))
-                .thenReturn(total);
+        prepareJwt(DEFAULT_USER_ID, ADMIN_ROLE);
+        when(paymentService.getTotalSuccessfulPaymentsForAll(eq(SUMMARY_FROM), eq(SUMMARY_TO)))
+                .thenReturn(TOTAL_AMOUNT);
 
         mockMvc.perform(get("/api/payments/summary")
-                        .param("from", from.toString())
-                        .param("to", to.toString()))
+                        .param("from", SUMMARY_FROM.toString())
+                        .param("to", SUMMARY_TO.toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").value(total.doubleValue()));
+                .andExpect(jsonPath("$").value(TOTAL_AMOUNT.doubleValue()));
+    }
+
+    private void prepareJwt(Long userId, String role) {
+        stubJwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("user_id", userId)
+                .claim("role", role)
+                .build();
     }
 }

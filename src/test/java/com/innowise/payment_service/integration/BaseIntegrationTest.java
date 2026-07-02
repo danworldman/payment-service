@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
@@ -25,9 +26,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
+
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.util.Date;
@@ -87,9 +90,9 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     @BeforeEach
     void setUpBase() {
         restTemplate = new RestTemplate();
-        restTemplate.setErrorHandler(new org.springframework.web.client.DefaultResponseErrorHandler() {
+        restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
-            public boolean hasError(org.springframework.http.HttpStatusCode statusCode) {
+            public boolean hasError(HttpStatusCode statusCode) {
                 return false;
             }
         });
@@ -122,8 +125,8 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
             SignedJWT signedJWT = new SignedJWT(header, claimsSet);
             signedJWT.sign(new RSASSASigner(keyPair.getPrivate()));
             return signedJWT.serialize();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (Exception exception) {
+            throw new RuntimeException(exception);
         }
     }
 
@@ -132,14 +135,14 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
                 .willReturn(WireMock.aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                        .withBody("{\"number\":42}")));
+                        .withBody("{\"number\":" + EVEN_NUMBER + "}")));
     }
 
     protected String toJson(Object object) {
         try {
             return objectMapper.writeValueAsString(object);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (Exception exception) {
+            throw new RuntimeException(exception);
         }
     }
 }

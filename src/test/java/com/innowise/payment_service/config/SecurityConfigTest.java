@@ -1,5 +1,6 @@
 package com.innowise.payment_service.config;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -44,7 +45,10 @@ class SecurityConfigTest {
         assertThat(authenticationToken).isNotNull();
         boolean hasAnyCustomRole = authenticationToken.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
-                .anyMatch(authority -> authority.startsWith("ROLE_"));
+                .anyMatch(authority -> {
+                    Assertions.assertNotNull(authority);
+                    return authority.startsWith("ROLE_");
+                });
         assertThat(hasAnyCustomRole).isFalse();
     }
 }

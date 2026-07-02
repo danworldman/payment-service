@@ -10,6 +10,7 @@ import com.innowise.payment_service.model.dto.PaymentResponseDto;
 import com.innowise.payment_service.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +25,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponseDto initiatePayment(PaymentRequestDto paymentFields, Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID must not be null");
+        }
         Payment payment = Payment.builder()
                 .orderId(paymentFields.orderId())
                 .userId(userId)
@@ -34,6 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment savedPayment = paymentDAO.save(payment);
         paymentProcessor.processPaymentAsync(savedPayment.getId());
+
         return paymentMapper.toResponseDto(savedPayment);
     }
 
@@ -41,29 +46,14 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponseDto getPaymentById(String id) {
         Payment payment = paymentDAO.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
+
         return paymentMapper.toResponseDto(payment);
     }
 
     @Override
     public List<PaymentResponseDto> getPaymentsByFilters(Long userId, Long orderId, PaymentStatus status) {
-        List<Payment> payments;
-        if (userId != null && orderId != null && status != null) {
-            payments = paymentDAO.findByUserIdAndOrderIdAndStatus(userId, orderId, status);
-        } else if (userId != null && orderId != null) {
-            payments = paymentDAO.findByUserIdAndOrderId(userId, orderId);
-        } else if (userId != null && status != null) {
-            payments = paymentDAO.findByUserIdAndStatus(userId, status);
-        } else if (orderId != null && status != null) {
-            payments = paymentDAO.findByOrderIdAndStatus(orderId, status);
-        } else if (userId != null) {
-            payments = paymentDAO.findByUserId(userId);
-        } else if (orderId != null) {
-            payments = paymentDAO.findByOrderId(orderId);
-        } else if (status != null) {
-            payments = paymentDAO.findByStatus(status);
-        } else {
-            payments = paymentDAO.findAll();
-        }
+        List<Payment> payments = paymentDAO.findByDynamicFilters(userId, orderId, status);
+
         return payments.stream()
                 .map(paymentMapper::toResponseDto)
                 .toList();
@@ -71,6 +61,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public BigDecimal getTotalSuccessfulPaymentsForUser(Long userId, Instant from, Instant to) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID must not be null");
+        }
+
         return paymentDAO.getTotalSuccessfulPaymentsByUserIdAndDateRange(userId, from, to);
     }
 
@@ -81,8 +75,13 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public boolean isPaymentOwnedByUser(String id, Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID must not be null");
+        }
+
         Payment payment = paymentDAO.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
+
         return payment.getUserId().equals(userId);
     }
 }

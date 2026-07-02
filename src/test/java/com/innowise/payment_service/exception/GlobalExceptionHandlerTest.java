@@ -1,5 +1,8 @@
 package com.innowise.payment_service.exception;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -9,9 +12,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Path;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,116 +23,156 @@ import static org.mockito.Mockito.when;
 
 class GlobalExceptionHandlerTest {
 
+    private static final String PAYMENT_NOT_FOUND_MSG = "Payment not found";
+    private static final String ACCESS_DENIED_MSG = "Access denied";
+    private static final String VALIDATION_FAILED_MSG = "Validation failed";
+    private static final String FIELD_ERROR_MSG = "must not be null";
+    private static final String RESOURCE_NOT_FOUND_MSG = "Resource or handler endpoint not found";
+    private static final String GENERIC_ERROR_MSG = "An unexpected internal server error occurred: ";
+
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
     @Test
     void handlePaymentNotFound_shouldReturnNotFoundProblemDetail() {
-        PaymentNotFoundException ex = new PaymentNotFoundException("Payment not found");
+        PaymentNotFoundException exception = new PaymentNotFoundException(PAYMENT_NOT_FOUND_MSG);
 
-        ResponseEntity<ProblemDetail> response = handler.handlePaymentNotFound(ex);
+        ResponseEntity<ProblemDetail> response = handler.handlePaymentNotFound(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getDetail()).isEqualTo("Payment not found");
-        assertThat(response.getBody().getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+        assertThat(response.getBody())
+                .satisfies(problemDetail -> {
+                    assertThat(problemDetail.getDetail()).isEqualTo(PAYMENT_NOT_FOUND_MSG);
+                    assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+                });
     }
 
     @Test
     void handleAccessDenied_shouldReturnForbiddenProblemDetail() {
-        AccessDeniedException ex = new AccessDeniedException("Access denied");
+        AccessDeniedException exception = new AccessDeniedException(ACCESS_DENIED_MSG);
 
-        ResponseEntity<ProblemDetail> response = handler.handleAccessDenied(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleAccessDenied(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getDetail()).isEqualTo("Access denied");
+        assertThat(response.getBody()).satisfies(problemDetail ->
+                assertThat(problemDetail.getDetail()).isEqualTo(ACCESS_DENIED_MSG)
+        );
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void handleValidation_shouldReturnBadRequestWithErrorsMap() {
-        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
         BindingResult bindingResult = mock(BindingResult.class);
-        FieldError fieldError = new FieldError("object", "field", "must not be null");
-        when(ex.getBindingResult()).thenReturn(bindingResult);
+        FieldError fieldError = new FieldError("object", "field", FIELD_ERROR_MSG);
+
+        when(exception.getBindingResult()).thenReturn(bindingResult);
         when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError));
 
-        ResponseEntity<ProblemDetail> response = handler.handleValidation(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleValidation(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        ProblemDetail detail = response.getBody();
-        assertThat(detail).isNotNull();
-        assertThat(detail.getDetail()).isEqualTo("Validation failed");
-        Map<String, String> errors = (Map<String, String>) detail.getProperties().get("errors");
-        assertThat(errors).containsEntry("field", "must not be null");
+        ProblemDetail problemDetail = response.getBody();
+        assertThat(problemDetail).isNotNull();
+        assertThat(problemDetail.getDetail()).isEqualTo(VALIDATION_FAILED_MSG);
+
+        Map<String, String> errors = (Map<String, String>) problemDetail.getProperties().get("errors");
+        assertThat(errors).containsEntry("field", FIELD_ERROR_MSG);
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void handleConstraintViolation_shouldReturnBadRequestWithErrorsMap() {
-        ConstraintViolationException ex = mock(ConstraintViolationException.class);
+        ConstraintViolationException exception = mock(ConstraintViolationException.class);
         ConstraintViolation<Object> violation = mock(ConstraintViolation.class);
         Path path = mock(Path.class);
+
         when(path.toString()).thenReturn("orderId");
         when(violation.getPropertyPath()).thenReturn(path);
-        when(violation.getMessage()).thenReturn("must not be null");
-        when(ex.getConstraintViolations()).thenReturn(Set.of(violation));
+        when(violation.getMessage()).thenReturn(FIELD_ERROR_MSG);
+        when(exception.getConstraintViolations()).thenReturn(Set.of(violation));
 
-        ResponseEntity<ProblemDetail> response = handler.handleConstraintViolation(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleConstraintViolation(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        ProblemDetail detail = response.getBody();
-        assertThat(detail).isNotNull();
-        Map<String, String> errors = (Map<String, String>) detail.getProperties().get("errors");
-        assertThat(errors).containsEntry("orderId", "must not be null");
+        ProblemDetail problemDetail = response.getBody();
+        assertThat(problemDetail).isNotNull();
+        assertThat(problemDetail.getDetail()).isEqualTo(VALIDATION_FAILED_MSG);
+
+        Map<String, String> errors = (Map<String, String>) problemDetail.getProperties().get("errors");
+        assertThat(errors).containsEntry("orderId", FIELD_ERROR_MSG);
     }
 
     @Test
-    @SuppressWarnings({"unchecked", "rawtypes"})
     void handleTypeMismatch_shouldReturnBadRequestWithParameterInfo() {
-        MethodArgumentTypeMismatchException ex = mock(MethodArgumentTypeMismatchException.class);
-        when(ex.getName()).thenReturn("userId");
-        when(ex.getRequiredType()).thenReturn((Class) Long.class);
+        MethodArgumentTypeMismatchException exception = mock(MethodArgumentTypeMismatchException.class);
 
-        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(ex);
+        when(exception.getName()).thenReturn("userId");
+        when(exception.getRequiredType()).thenAnswer(invocation -> Long.class);
+
+        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getDetail()).isEqualTo("Parameter 'userId' should be of type 'Long'");
+        assertThat(response.getBody()).satisfies(problemDetail ->
+                assertThat(problemDetail.getDetail()).isEqualTo("Parameter 'userId' should be of type 'Long'")
+        );
     }
 
     @Test
     void handleTypeMismatch_shouldReturnBadRequestWithUnknownType_whenRequiredTypeIsNull() {
-        MethodArgumentTypeMismatchException ex = mock(MethodArgumentTypeMismatchException.class);
-        when(ex.getName()).thenReturn("userId");
-        when(ex.getRequiredType()).thenReturn(null);
+        MethodArgumentTypeMismatchException exception = mock(MethodArgumentTypeMismatchException.class);
 
-        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(ex);
+        when(exception.getName()).thenReturn("userId");
+        when(exception.getRequiredType()).thenReturn(null);
+
+        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getDetail()).isEqualTo("Parameter 'userId' should be of type 'unknown'");
+        assertThat(response.getBody()).satisfies(problemDetail ->
+                assertThat(problemDetail.getDetail()).isEqualTo("Parameter 'userId' should be of type 'unknown'")
+        );
     }
 
     @Test
     void handleNotFound_shouldReturnNotFoundGenericMessage() {
-        Exception ex = new Exception();
-
-        ResponseEntity<ProblemDetail> response = handler.handleNotFound(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleNotFound();
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getDetail()).isEqualTo("Resource or handler endpoint not found");
+        assertThat(response.getBody()).satisfies(problemDetail ->
+                assertThat(problemDetail.getDetail()).isEqualTo(RESOURCE_NOT_FOUND_MSG)
+        );
     }
 
     @Test
     void handleGenericException_shouldReturnInternalServerErrorWithMessage() {
-        Exception ex = new RuntimeException("Something went wrong");
+        Exception exception = new RuntimeException("Something went wrong");
 
-        ResponseEntity<ProblemDetail> response = handler.handleGenericException(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleGenericException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getDetail()).isEqualTo("An unexpected internal server error occurred: Something went wrong");
+        assertThat(response.getBody()).satisfies(problemDetail ->
+                assertThat(problemDetail.getDetail()).isEqualTo("An unexpected internal server error occurred")
+        );
+    }
+
+    @Test
+    void handlePaymentProcessing_shouldReturnInternalServerErrorWithMessage() {
+        PaymentProcessingException exception = new PaymentProcessingException("Payment processing error");
+
+        ResponseEntity<ProblemDetail> response = handler.handlePaymentProcessing(exception);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).satisfies(problemDetail ->
+                assertThat(problemDetail.getDetail()).isEqualTo("Payment processing error")
+        );
+    }
+
+    @Test
+    void handleIllegalArgument_shouldReturnBadRequestWithMessage() {
+        IllegalArgumentException exception = new IllegalArgumentException("Invalid argument");
+
+        ResponseEntity<ProblemDetail> response = handler.handleIllegalArgument(exception);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).satisfies(problemDetail ->
+                assertThat(problemDetail.getDetail()).isEqualTo("Invalid argument")
+        );
     }
 }

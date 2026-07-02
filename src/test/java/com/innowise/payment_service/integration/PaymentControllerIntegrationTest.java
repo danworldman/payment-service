@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -24,12 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
+class PaymentControllerIntegrationTest extends BaseIntegrationTest {
 
-    private HttpHeaders createAuthHeaders(Long userId, String role) {
+    private HttpHeaders createAuthHeaders(String role) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + generateTestToken(userId, role));
+        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + generateTestToken(DEFAULT_USER_ID, role));
+
         return headers;
     }
 
@@ -39,9 +39,9 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
                 .willReturn(WireMock.aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                        .withBody("{\"number\":42}")));
+                        .withBody("{\"number\":" + EVEN_NUMBER + "}")));
 
-        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, createAuthHeaders(USER_ROLE));
 
         ResponseEntity<PaymentResponseDto> response = restTemplate.postForEntity(
                 baseUrl() + "/api/payments", entity, PaymentResponseDto.class
@@ -58,7 +58,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
                 .untilAsserted(() -> {
                     List<Payment> list = paymentDAO.findByUserId(DEFAULT_USER_ID);
                     assertFalse(list.isEmpty());
-                    assertEquals(PaymentStatus.SUCCESS, list.get(0).getStatus());
+                    assertEquals(PaymentStatus.SUCCESS, list.getFirst().getStatus());
                 });
     }
 
@@ -68,9 +68,9 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
                 .willReturn(WireMock.aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                        .withBody("{\"number\":13}")));
+                        .withBody("{\"number\":" + ODD_NUMBER + "}")));
 
-        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, createAuthHeaders(USER_ROLE));
 
         ResponseEntity<PaymentResponseDto> response = restTemplate.postForEntity(
                 baseUrl() + "/api/payments", entity, PaymentResponseDto.class
@@ -84,7 +84,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
                 .untilAsserted(() -> {
                     List<Payment> list = paymentDAO.findByUserId(DEFAULT_USER_ID);
                     assertFalse(list.isEmpty());
-                    assertEquals(PaymentStatus.FAILED, list.get(0).getStatus());
+                    assertEquals(PaymentStatus.FAILED, list.getFirst().getStatus());
                 });
     }
 
@@ -93,7 +93,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         wireMockServer.stubFor(WireMock.get(WireMock.urlEqualTo("/api/numbers"))
                 .willReturn(WireMock.aResponse().withStatus(500)));
 
-        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(defaultPaymentRequestDto, createAuthHeaders(USER_ROLE));
 
         ResponseEntity<PaymentResponseDto> response = restTemplate.postForEntity(
                 baseUrl() + "/api/payments", entity, PaymentResponseDto.class
@@ -107,14 +107,14 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
                 .untilAsserted(() -> {
                     List<Payment> list = paymentDAO.findByUserId(DEFAULT_USER_ID);
                     assertFalse(list.isEmpty());
-                    assertEquals(PaymentStatus.FAILED, list.get(0).getStatus());
+                    assertEquals(PaymentStatus.FAILED, list.getFirst().getStatus());
                 });
     }
 
     @Test
     void createPayment_shouldReturn400BadRequest_whenPaymentAmountIsNegative() {
-        PaymentRequestDto invalidRequest = new PaymentRequestDto(DEFAULT_ORDER_ID, new BigDecimal("-50.00"));
-        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(invalidRequest, createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        PaymentRequestDto invalidRequest = new PaymentRequestDto(DEFAULT_ORDER_ID, NEGATIVE_AMOUNT);
+        HttpEntity<PaymentRequestDto> entity = new HttpEntity<>(invalidRequest, createAuthHeaders(USER_ROLE));
 
         ResponseEntity<String> response = restTemplate.postForEntity(
                 baseUrl() + "/api/payments", entity, String.class
@@ -133,7 +133,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
                 .build();
         Payment saved = paymentDAO.save(initialPayment);
 
-        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(USER_ROLE));
         String url = baseUrl() + "/api/payments/" + saved.getId();
 
         ResponseEntity<PaymentResponseDto> response = restTemplate.exchange(
@@ -147,7 +147,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
 
     @Test
     void getPaymentById_shouldReturn404NotFound_whenPaymentDoesNotExist() {
-        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(USER_ROLE));
         String url = baseUrl() + "/api/payments/" + NON_EXISTENT_ID;
 
         ResponseEntity<String> response = restTemplate.exchange(
@@ -163,13 +163,13 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
     void getPaymentById_shouldReturn403Forbidden_whenUserIsNotOwner() {
         Payment foreignPayment = Payment.builder()
                 .orderId(DEFAULT_ORDER_ID)
-                .userId(999L)
+                .userId(OTHER_USER_ID)
                 .status(PaymentStatus.PENDING)
                 .paymentAmount(DEFAULT_AMOUNT)
                 .build();
         Payment saved = paymentDAO.save(foreignPayment);
 
-        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(USER_ROLE));
         String url = baseUrl() + "/api/payments/" + saved.getId();
 
         ResponseEntity<String> response = restTemplate.exchange(
@@ -181,14 +181,24 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
 
     @Test
     void getPayments_shouldReturnFilteredPayments_forSpecificUser() {
-        Long alternativeUserId = 20L;
-        Payment p1 = Payment.builder().orderId(10L).userId(DEFAULT_USER_ID).status(PaymentStatus.SUCCESS).build();
-        Payment p2 = Payment.builder().orderId(20L).userId(alternativeUserId).status(PaymentStatus.SUCCESS).build();
-        paymentDAO.save(p1);
-        paymentDAO.save(p2);
+        Long alternativeUserId = 2L;
+        Payment payment1 = Payment.builder()
+                .orderId(10L)
+                .userId(DEFAULT_USER_ID)
+                .status(PaymentStatus.SUCCESS)
+                .paymentAmount(DEFAULT_AMOUNT)
+                .build();
+        Payment payment2 = Payment.builder()
+                .orderId(2L)
+                .userId(alternativeUserId)
+                .status(PaymentStatus.SUCCESS)
+                .paymentAmount(DEFAULT_AMOUNT)
+                .build();
+        paymentDAO.save(payment1);
+        paymentDAO.save(payment2);
 
         String url = baseUrl() + "/api/payments?userId=" + DEFAULT_USER_ID;
-        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
+        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(USER_ROLE));
 
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
@@ -196,34 +206,14 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
         String body = response.getBody();
         assertNotNull(body);
         assertTrue(body.contains("\"userId\":" + DEFAULT_USER_ID));
-        assertTrue(body.contains("\"userId\":" + DEFAULT_USER_ID));
-    }
-
-    @Test
-    void getPayments_shouldReturnAllPayments_whenUserIsAdmin() {
-        Long alternativeUserId = 20L;
-        Payment p1 = Payment.builder().orderId(10L).userId(DEFAULT_USER_ID).status(PaymentStatus.SUCCESS).build();
-        Payment p2 = Payment.builder().orderId(20L).userId(alternativeUserId).status(PaymentStatus.SUCCESS).build();
-        paymentDAO.save(p1);
-        paymentDAO.save(p2);
-
-        String url = baseUrl() + "/api/payments";
-        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "ADMIN"));
-
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        String body = response.getBody();
-        assertNotNull(body);
-        assertTrue(body.contains("\"userId\":" + DEFAULT_USER_ID));
-        assertTrue(body.contains("\"userId\":" + alternativeUserId));
+        assertFalse(body.contains("\"userId\":" + alternativeUserId));
     }
 
     @Test
     void getUserSummary_shouldReturn403Forbidden_whenRequestingOtherUserSummary() {
-        Long alternativeUserId = 20L;
-        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
-        String url = baseUrl() + "/api/payments/users/" + alternativeUserId + "/summary?from=2026-06-01T00:00:00Z&to=2026-07-02T00:00:00Z";
+        Long alternativeUserId = 2L;
+        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(USER_ROLE));
+        String url = baseUrl() + "/api/payments/users/" + alternativeUserId + "/summary?from=" + SUMMARY_FROM + "&to=" + SUMMARY_TO;
 
         ResponseEntity<String> response = restTemplate.exchange(
                 url, HttpMethod.GET, entity, String.class
@@ -234,8 +224,8 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
 
     @Test
     void getAllSummary_shouldReturn403Forbidden_whenUserIsNotAdmin() {
-        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(DEFAULT_USER_ID, "USER"));
-        String url = baseUrl() + "/api/payments/summary?from=2026-06-01T00:00:00Z&to=2026-07-02T00:00:00Z";
+        HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders(USER_ROLE));
+        String url = baseUrl() + "/api/payments/summary?from=" + SUMMARY_FROM + "&to=" + SUMMARY_TO;
 
         ResponseEntity<String> response = restTemplate.exchange(
                 url, HttpMethod.GET, entity, String.class
@@ -246,7 +236,7 @@ public class PaymentControllerIntegrationTest extends BaseIntegrationTest {
 
     @Test
     void createPayment_shouldReturn401_whenTokenHasInvalidSignature() {
-        String invalidToken = generateTestToken(DEFAULT_USER_ID, "USER") + "invalid";
+        String invalidToken = generateTestToken(DEFAULT_USER_ID, USER_ROLE) + "invalid";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + invalidToken);

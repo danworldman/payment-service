@@ -1,6 +1,7 @@
 package com.innowise.payment_service.client;
 
 import com.innowise.payment_service.exception.PaymentProcessingException;
+import com.innowise.payment_service.testdata.PaymentTestData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
+
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,8 +19,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("rawtypes")
-class ExternalPaymentApiClientTest {
+class ExternalPaymentApiClientTest extends PaymentTestData {
+
+    private static final String INVALID_API_RESPONSE_MSG = "Invalid external API response structure";
+    private static final String API_UNAVAILABLE_MSG = "External API unavailable";
 
     @Mock
     private RestClient restClient;
@@ -42,7 +46,7 @@ class ExternalPaymentApiClientTest {
 
     @Test
     void generateRandomNumber_shouldReturnNumber_whenApiResponseContainsNumber() {
-        Map<String, Object> response = Map.of("number", 42);
+        Map<String, Object> response = Map.of("number", 1);
         when(restClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
@@ -50,12 +54,12 @@ class ExternalPaymentApiClientTest {
 
         int result = client.generateRandomNumber();
 
-        assertThat(result).isEqualTo(42);
+        assertThat(result).isEqualTo(1);
     }
 
     @Test
     void generateRandomNumber_shouldThrowPaymentProcessingException_whenResponseMissingNumber() {
-        Map<Object, Object> response = Map.of();
+        Map<String, Object> response = Map.of();
         when(restClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
@@ -64,7 +68,7 @@ class ExternalPaymentApiClientTest {
         PaymentProcessingException exception = assertThrows(PaymentProcessingException.class,
                 () -> client.generateRandomNumber());
 
-        assertThat(exception.getMessage()).isEqualTo("Invalid external API response structure");
+        assertThat(exception.getMessage()).isEqualTo(INVALID_API_RESPONSE_MSG);
     }
 
     @Test
@@ -76,7 +80,7 @@ class ExternalPaymentApiClientTest {
         PaymentProcessingException exception = assertThrows(PaymentProcessingException.class,
                 () -> client.generateRandomNumber());
 
-        assertThat(exception.getMessage()).isEqualTo("External API unavailable");
+        assertThat(exception.getMessage()).isEqualTo(API_UNAVAILABLE_MSG);
         assertThat(exception.getCause()).isInstanceOf(RuntimeException.class);
     }
 }

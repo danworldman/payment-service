@@ -8,6 +8,7 @@ import lombok.Builder;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
@@ -48,11 +49,11 @@ public class Payment {
         }
 
         Payment payment = (Payment) object;
-        return Objects.equals(id, payment.id);
+        return getId() != null && getId().equals(payment.getId());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return Objects.hash(getId());
     }
 }

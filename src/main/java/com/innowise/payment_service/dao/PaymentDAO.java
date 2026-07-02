@@ -4,6 +4,7 @@ import com.innowise.payment_service.model.document.Payment;
 import com.innowise.payment_service.model.document.PaymentStatus;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
+
 import java.util.List;
 
 @Repository
