@@ -37,9 +37,9 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(registry -> registry
+                        .requestMatchers(HttpMethod.GET, "/api/payments/summary").hasRole(ROLE_ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/payments").hasAnyRole(ROLE_USER, ROLE_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/payments/**").hasAnyRole(ROLE_USER, ROLE_ADMIN)
-                        .requestMatchers(HttpMethod.GET, "/api/payments/summary").hasRole(ROLE_ADMIN)
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(configurer -> configurer
