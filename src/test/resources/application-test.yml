@@ -1,11 +1,7 @@
 spring:
   application:
     name: payment-service-test
-  data:
-    mongodb:
-      uri: ${spring.data.mongodb.uri}
   kafka:
-    bootstrap-servers: ${spring.embedded.kafka.brokers}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -15,7 +11,3 @@ mongock:
   migration-scan-package:
     - com.innowise.payment_service.mongock.changelogs
   transaction-enabled: false
-
-external:
-  api:
-    url: ${external.api.url}

@@ -2,8 +2,10 @@ package com.innowise.payment_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
+@EnableAsync
 public class PaymentServiceApplication {
 
     public static void main(String[] args) {

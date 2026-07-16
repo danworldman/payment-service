@@ -1,7 +1,6 @@
 spring:
-  data:
-    mongodb:
-      uri: ${MONGO_URI:mongodb://mongodb:27017/payment_db}
+  mongodb:
+    uri: ${MONGO_URI:mongodb://mongodb:27017/payment_db}
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:kafka:9092}
   security:

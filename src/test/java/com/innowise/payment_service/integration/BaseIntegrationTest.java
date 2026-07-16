@@ -83,7 +83,7 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
+        registry.add("spring.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
         registry.add("external.api.url", () -> "http://127.0.0.1:" + wireMockServer.port() + "/api/numbers");
     }
 

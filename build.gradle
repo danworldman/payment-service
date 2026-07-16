@@ -49,6 +49,7 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.kafka:spring-kafka-test'
 	testImplementation 'org.testcontainers:testcontainers:1.19.8'
+	testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
 	testImplementation 'org.testcontainers:mongodb:1.19.8'
 	testImplementation 'org.testcontainers:kafka:1.19.8'
 	testImplementation 'org.wiremock:wiremock-standalone:3.4.2'
@@ -65,11 +66,6 @@ dependencyManagement {
 tasks.named('test', Test) {
 	useJUnitPlatform()
 	maxParallelForks = 1
-
-	if (System.getenv('GITHUB_ACTIONS') == 'true') {
-		exclude 'com/innowise/payment_service/integration/**'
-	}
-
 	finalizedBy 'jacocoTestReport'
 }
 

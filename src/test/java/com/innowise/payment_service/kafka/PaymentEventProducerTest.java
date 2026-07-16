@@ -17,7 +17,6 @@ import static org.mockito.Mockito.when;
 class PaymentEventProducerTest extends PaymentTestData {
 
     private static final String PAYMENT_EVENTS_TOPIC = "payment-events";
-
     private KafkaTemplate<String, PaymentCompletedEvent> kafkaTemplate;
     private PaymentEventProducer producer;
 
@@ -29,15 +28,17 @@ class PaymentEventProducerTest extends PaymentTestData {
 
     @Test
     void sendPaymentEvent_shouldCallKafkaTemplate() {
+        PaymentCompletedEvent testEvent = new PaymentCompletedEvent(DEFAULT_ORDER_ID, "SUCCESS");
+
         when(kafkaTemplate.send(any(String.class), any(String.class), any(PaymentCompletedEvent.class)))
                 .thenReturn(new CompletableFuture<>());
 
-        producer.sendPaymentEvent(defaultSuccessPayment);
+        producer.sendPaymentEvent(testEvent);
 
         verify(kafkaTemplate).send(
                 eq(PAYMENT_EVENTS_TOPIC),
-                eq(String.valueOf(defaultSuccessPayment.getOrderId())),
-                any(PaymentCompletedEvent.class)
+                eq(String.valueOf(DEFAULT_ORDER_ID)),
+                eq(testEvent)
         );
     }
 }

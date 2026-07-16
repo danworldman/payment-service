@@ -20,6 +20,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,12 +41,14 @@ class PaymentServiceImplTest extends PaymentTestData {
 
     @Test
     void initiatePayment_shouldReturnPaymentResponse_whenValid() {
+        when(paymentMapper.toEntity(any(), any())).thenReturn(defaultPendingPayment);
         when(paymentDAO.save(any(Payment.class))).thenReturn(defaultPendingPayment);
         when(paymentMapper.toResponseDto(defaultPendingPayment)).thenReturn(defaultPaymentResponseDto);
 
         PaymentResponseDto result = paymentService.initiatePayment(defaultPaymentRequestDto, DEFAULT_USER_ID);
 
         assertThat(result).isNotNull();
+        verify(paymentMapper).toEntity(eq(defaultPaymentRequestDto), eq(DEFAULT_USER_ID));
         verify(paymentDAO).save(any(Payment.class));
         verify(paymentProcessor).processPaymentAsync(DEFAULT_PAYMENT_ID);
     }

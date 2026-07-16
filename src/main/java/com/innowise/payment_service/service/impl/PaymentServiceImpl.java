@@ -28,13 +28,10 @@ public class PaymentServiceImpl implements PaymentService {
         if (userId == null) {
             throw new IllegalArgumentException("User ID must not be null");
         }
-        Payment payment = Payment.builder()
-                .orderId(paymentFields.orderId())
-                .userId(userId)
-                .paymentAmount(paymentFields.paymentAmount())
-                .status(PaymentStatus.PENDING)
-                .timestamp(Instant.now())
-                .build();
+
+        Payment payment = paymentMapper.toEntity(paymentFields, userId);
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setTimestamp(Instant.now());
 
         Payment savedPayment = paymentDAO.save(payment);
         paymentProcessor.processPaymentAsync(savedPayment.getId());
@@ -45,15 +42,15 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public PaymentResponseDto getPaymentById(String id) {
         Payment payment = paymentDAO.findById(id)
-                .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
-
+                .orElseThrow(() -> {
+                    return new PaymentNotFoundException("Payment not found");
+                });
         return paymentMapper.toResponseDto(payment);
     }
 
     @Override
     public List<PaymentResponseDto> getPaymentsByFilters(Long userId, Long orderId, PaymentStatus status) {
         List<Payment> payments = paymentDAO.findByDynamicFilters(userId, orderId, status);
-
         return payments.stream()
                 .map(paymentMapper::toResponseDto)
                 .toList();
@@ -64,7 +61,6 @@ public class PaymentServiceImpl implements PaymentService {
         if (userId == null) {
             throw new IllegalArgumentException("User ID must not be null");
         }
-
         return paymentDAO.getTotalSuccessfulPaymentsByUserIdAndDateRange(userId, from, to);
     }
 
@@ -78,10 +74,10 @@ public class PaymentServiceImpl implements PaymentService {
         if (userId == null) {
             throw new IllegalArgumentException("User ID must not be null");
         }
-
         Payment payment = paymentDAO.findById(id)
-                .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
-
+                .orElseThrow(() -> {
+                    return new PaymentNotFoundException("Payment not found");
+                });
         return payment.getUserId().equals(userId);
     }
 }
