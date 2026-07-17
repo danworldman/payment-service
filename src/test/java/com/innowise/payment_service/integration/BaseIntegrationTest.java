@@ -19,8 +19,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -29,6 +27,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.security.KeyPair;
@@ -37,7 +36,6 @@ import java.util.Date;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1, topics = {"payment-events"})
 @Import({TestSecurityConfig.class})
 @TestPropertySource(properties = {
         "mongock.enabled=false",
@@ -53,6 +51,7 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     protected RestTemplate restTemplate;
     protected static final WireMockServer wireMockServer;
     protected static final MongoDBContainer mongoDBContainer;
+    protected static final ConfluentKafkaContainer kafkaContainer;
     public static final KeyPair keyPair;
 
     @Autowired
@@ -61,12 +60,12 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     @Autowired
     protected ObjectMapper objectMapper;
 
-    @Autowired(required = false)
-    protected EmbeddedKafkaBroker embeddedKafkaBroker;
-
     static {
         mongoDBContainer = new MongoDBContainer(DockerImageName.parse("mongo:4.4"));
         mongoDBContainer.start();
+
+        kafkaContainer = new ConfluentKafkaContainer("confluentinc/cp-kafka:7.4.0");
+        kafkaContainer.start();
 
         wireMockServer = new WireMockServer(0);
         wireMockServer.start();
@@ -84,6 +83,7 @@ public abstract class BaseIntegrationTest extends PaymentTestData {
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
+        registry.add("spring.kafka.bootstrap-servers", kafkaContainer::getBootstrapServers);
         registry.add("external.api.url", () -> "http://127.0.0.1:" + wireMockServer.port() + "/api/numbers");
     }
 

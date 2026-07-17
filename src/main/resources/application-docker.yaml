@@ -1,15 +1,6 @@
 spring:
   mongodb:
     uri: ${SPRING_MONGODB_URI:mongodb://system-mongodb:27017/payment_db?connectTimeoutMS=5000&socketTimeoutMS=5000}
-  kafka:
-    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:system-kafka:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-      retries: 3
-      properties:
-        retry.backoff.ms: 250
   security:
     oauth2:
       resourceserver:
