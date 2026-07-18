@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: payment-service
+  profiles:
+    default: local
+  mvc:
+    throw-exception-if-no-handler-found: true
+  resources:
+    add-mappings: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://auth-service:8081/oauth2/jwks
+
+server:
+  port: 8083
+
+mongock:
+  migration-scan-package:
+    - com.innowise.payment_service.mongock.changelogs
+  transaction-enabled: false
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  health:
+    defaults:
+      enabled: true
+    kafka:
+      enabled: false
+    mongodb:
+      enabled: false

@@ -1,0 +1,14 @@
+spring:
+  mongodb:
+    uri: ${MONGO_URI:mongodb://mongodb:27017/payment_db}
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:kafka:9092}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://auth-service:8081/oauth2/jwks
+
+external:
+  api:
+    url: ${EXTERNAL_API_URL:http://external-api-service:8084/api/numbers}

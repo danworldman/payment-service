@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: payment-service-test
+
+mongock:
+  enabled: false
+  migration-scan-package:
+    - com.innowise.payment_service.mongock.changelogs
+  transaction-enabled: false

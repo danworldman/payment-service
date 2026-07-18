@@ -1,0 +1,22 @@
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+spring:
+  mongodb:
+    uri: ${SPRING_MONGODB_URI:mongodb://system-mongodb:27017/payment_db?connectTimeoutMS=5000&socketTimeoutMS=5000}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://auth-service:8081/oauth2/jwks
+
+external:
+  api:
+    url: ${EXTERNAL_API_URL:http://external-mock:8084/api/numbers}
